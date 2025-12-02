@@ -17,14 +17,15 @@ interface NavItem {
   label: string;
   path: string;
   icon: React.ReactNode;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Processor', path: '/', icon: <HomeIcon /> },
   { label: 'Transcription', path: '/transcription', icon: <MicIcon /> },
-  { label: 'Validation', path: '/validation', icon: <CheckCircleIcon /> },
-  { label: 'Leaderboard', path: '/leaderboard', icon: <LeaderboardIcon /> },
-  { label: 'Statistics', path: '/statistics', icon: <QueryStatsIcon /> },
+  { label: 'Validation', path: '/validation', icon: <CheckCircleIcon />, adminOnly: true },
+  { label: 'Leaderboard', path: '/leaderboard', icon: <LeaderboardIcon />, adminOnly: true },
+  { label: 'Statistics', path: '/statistics', icon: <QueryStatsIcon />, adminOnly: true },
 ];
 
 const DRAWER_WIDTH = 240;
@@ -33,11 +34,13 @@ const COLLAPSED_WIDTH = 72;
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const { admin, profiles, openSelector, clearAdmin } = useAdmin();
+  const { admin, profiles, openSelector, clearAdmin, isAdmin } = useAdmin();
 
   const currentProfile = admin ? profiles.find(p => p.id === admin) : null;
   const displayName = currentProfile?.displayName || 'Guest';
   const avatarSrc = currentProfile?.imagePath || '/src/assets/profiles/placeholder.svg';
+
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <Box display="flex" minHeight="100vh">
@@ -78,7 +81,7 @@ export function AppLayout() {
           )}
         </Box>
         <List sx={{ flexGrow: 1 }}>
-          {NAV_ITEMS.map(item => {
+          {visibleNavItems.map(item => {
             const isActive = location.pathname === item.path;
             return (
               <ListItemButton

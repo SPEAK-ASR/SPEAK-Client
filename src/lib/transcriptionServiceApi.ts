@@ -43,14 +43,14 @@ export interface TranscriptionRecord {
   trans_id: string;
   audio_id: string;
   transcription: string;
-  speaker_gender: SpeakerGender;
-  has_noise: boolean;
-  is_code_mixed: boolean;
-  is_speaker_overlappings_exist: boolean;
+  speaker_gender: SpeakerGender | null;
+  has_noise: boolean | null;
+  is_code_mixed: boolean | null;
+  is_speaker_overlappings_exist: boolean | null;
   is_audio_suitable: boolean | null;
   admin: AdminName | null;
   validated_at: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 export interface ValidationQueueItem {
