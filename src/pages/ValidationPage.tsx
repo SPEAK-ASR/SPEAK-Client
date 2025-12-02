@@ -68,10 +68,10 @@ export function ValidationPage() {
     if (!queueItem || !textareaRef.current) return;
     textareaRef.current.value = queueItem.transcription.transcription;
     setMetadata({
-      speakerGender: queueItem.transcription.speaker_gender,
-      hasNoise: queueItem.transcription.has_noise,
-      isCodeMixed: queueItem.transcription.is_code_mixed,
-      isOverlap: queueItem.transcription.is_speaker_overlappings_exist,
+      speakerGender: queueItem.transcription.speaker_gender ?? '',
+      hasNoise: queueItem.transcription.has_noise ?? false,
+      isCodeMixed: queueItem.transcription.is_code_mixed ?? false,
+      isOverlap: queueItem.transcription.is_speaker_overlappings_exist ?? false,
       isAudioSuitable: queueItem.transcription.is_audio_suitable !== false,
     });
     setShowReference(false);
@@ -172,7 +172,7 @@ export function ValidationPage() {
           <Card component="form" variant="outlined" onSubmit={handleSubmit}>
             <CardHeader
               title={queueItem.audio.audio_filename}
-              subheader={`Created ${new Date(queueItem.transcription.created_at).toLocaleString()}`}
+              subheader={`Created ${new Date(queueItem.transcription.created_at ?? '').toLocaleString()}`}
               action={
                 <Button startIcon={<SkipNextIcon />} onClick={loadNextItem} disabled={loadingItem || submitting}>
                   Next pending
