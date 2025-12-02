@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Typography, Box } from '@mui/material';
-import { StatisticsFloatingButton } from './components/StatisticsFloatingButton';
 import { YoutubeUrlInput } from './components/YoutubeUrlInput';
 import { AudioClipsDisplay } from './components/AudioClipsDisplay';
 import { TranscriptionView } from './components/TranscriptionView';
 import { ProgressIndicator } from './components/ProgressIndicator';
 import { CompletionView } from './components/CompletionView';
-import { Footer } from './components/Footer';
 import { LoadingState } from './components/LoadingState';
 import { StatisticsPage } from './pages/StatisticsPage';
+import { AppLayout } from './components/layout/AppLayout';
+import { TranscriptionPage } from './pages/TranscriptionPage';
+import { ValidationPage } from './pages/ValidationPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
 import type { ClipData, TranscribedClip, VideoMetadata } from './lib/api';
 
 export type ProcessingStep = 'input' | 'processing' | 'clips' | 'transcription' | 'storage' | 'complete';
@@ -94,11 +96,10 @@ function HomePage() {
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      <StatisticsFloatingButton />
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 1.5 }}>
         <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-          <Box sx={{ textAlign: 'center', mb: 4, mt: 1}}>
-            <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 1 }}>
+          <Box sx={{ textAlign: 'center', mb: 2, mt: 0.5}}>
+            <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 0.5 }}>
               Audio Processor
             </Typography>
             <Typography 
@@ -126,7 +127,7 @@ function HomePage() {
             isProcessing={isProcessing}
           />
 
-          <Box sx={{ mt: 3 }}>
+          <Box sx={{ mt: 2 }}>
             {currentStep === 'input' && (
               <YoutubeUrlInput 
                 onSubmit={handleYoutubeSubmit}
@@ -193,7 +194,6 @@ function HomePage() {
             )}
           </Box>
 
-          <Footer />
         </Box>
       </Box>
     </Box>
@@ -201,20 +201,19 @@ function HomePage() {
 }
 
 function StatisticsPageWrapper() {
-  return (
-    <Box sx={{ minHeight: '100vh' }}>
-      <StatisticsFloatingButton />
-      <StatisticsPage />
-      <Footer />
-    </Box>
-  );
+  return <StatisticsPage />;
 }
 
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/statistics" element={<StatisticsPageWrapper />} />
+      <Route element={<AppLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="statistics" element={<StatisticsPageWrapper />} />
+        <Route path="transcription" element={<TranscriptionPage />} />
+        <Route path="validation" element={<ValidationPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+      </Route>
     </Routes>
   );
 }

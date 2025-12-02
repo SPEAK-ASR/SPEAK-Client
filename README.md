@@ -1,236 +1,168 @@
 # SPEAK-Client
 
-Web-based client application for the SPEAK Audio Scraping Service. This React application provides an intuitive interface for processing YouTube videos into audio clips with transcriptions and viewing comprehensive statistics.
+Single-page React client for the SPEAK platform. The app now hosts every operator-facing workflow: ingest YouTube videos, review transcription/validation queues from the standalone FastAPI Transcription-Service, monitor leaderboards, and control admin settings – all while keeping the Sinhala phonetic IME experience identical to the legacy SSR interface.
 
 ## Features
 
-- 🎬 **YouTube Video Processing**: Extract audio from YouTube videos and split into clips
-- 🎙️ **Automated Transcription**: Generate transcriptions for audio clips using Google Cloud Speech-to-Text
-- 📊 **Statistics Dashboard**: Comprehensive analytics and visualizations of processed data
-- 🌙 **Dark Theme UI**: Modern Material-UI interface with dark theme
-- 📱 **Responsive Design**: Works seamlessly across desktop and mobile devices
+- 🎬 **YouTube Audio Pipeline**: Kick off video ingestion, VAD-based audio splitting, transcription, and cloud persistence against the Audio-Scraping-Service backend.
+- 📝 **Transcription Workspace**: Fetch random clips, fill rich metadata, toggle Sinhala IME, mark unsuitable audio, and submit with a single hotkey-friendly UI.
+- ✅ **Validation Console**: Inspect queued submissions, compare against audio, update metadata, and track completion stats in real time.
+- 🏅 **Admin Leaderboard & Shortcuts**: Switch admins with `Ctrl + \\`` (backtick) anywhere in the app, view floating leaderboards, and keep contributions transparent.
+- 🇱🇰 **Sinhala Phonetic IME**: The original `sin-phonetic-ime.js` script loads from `public/` and is attached automatically via `useSinhalaIme` so every textarea matches the legacy typing experience.
+- 📊 **Statistics Dashboard**: Continue to view analytics from the Audio-Scraping-Service, including daily trends, domain mixes, and admin breakdowns.
 
 ## Tech Stack
 
-- **React 19** with TypeScript
-- **Vite** for fast development and building
-- **Material-UI (MUI)** for UI components
-- **React Router** for navigation
-- **Axios** for API communication
-- **Recharts & MUI X-Charts** for data visualization
-- **Tailwind CSS** for custom styling
+- **React 19 + TypeScript** powered by **Vite**
+- **Material UI** components with custom theming + Tailwind utility classes
+- **React Router** for page-level routing
+- **Axios** API clients for both backend services
+- Sinhala IME served as a plain script and wired through a custom hook
 
 ## Prerequisites
 
-- **Node.js** v18 or higher
-- **npm** v9 or higher
-- **Audio-Scraping-Service** backend running (see [backend repository](https://github.com/SPEAK-ASR/Audio-Scraping-Service))
+- **Node.js** v18+ and **npm** v9+
+- **Audio-Scraping-Service** running (YouTube ingestion + statistics)
+- **Transcription-Service** running (FastAPI backend that now exposes transcription, validation, leaderboard APIs)
 
 ## Installation
 
 ### Quick Start
 
 ```bash
-# Make installation script executable
 chmod +x install.sh
-
-# Run installation
 ./install.sh
 ```
 
 ### Manual Installation
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment configuration
 cp .env.example .env
-
-# Update .env with your backend API URL
-nano .env
+# Edit .env to point at both backend services
 ```
 
 ## Configuration
 
-Create a `.env` file in the project root (or copy from `.env.example`):
+Define all backend endpoints in `.env` (see `.env.example`):
 
 ```env
-# API Configuration
+# Audio-Scraping-Service (YouTube ingestion, statistics)
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 VITE_AUDIO_BASE_URL=http://localhost:8000
+
+# Transcription-Service (FastAPI)
+VITE_TRANSCRIPTION_API_URL=http://localhost:5000/api/v1
 ```
 
-### Environment Variables
-
 | Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:8000/api/v1` |
-| `VITE_AUDIO_BASE_URL` | Backend audio serving URL | `http://localhost:8000` |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | REST base URL for Audio-Scraping-Service | `http://localhost:8000/api/v1` |
+| `VITE_AUDIO_BASE_URL` | Direct host serving generated audio | `http://localhost:8000` |
+| `VITE_TRANSCRIPTION_API_URL` | FastAPI Transcription-Service base URL | `http://localhost:5000/api/v1` |
+
+> Both services enforce CORS; ensure your Vite dev server (`http://localhost:5173`) and production domain are whitelisted.
 
 ## Development
 
-### Start Development Server
-
 ```bash
-# Using the start script
-chmod +x start.sh
-./start.sh
-
-# Or manually
+# Start dev server (http://localhost:5173)
 npm run dev
-```
 
-The application will be available at `http://localhost:5173`
-
-### Build for Production
-
-```bash
-# Create production build
+# Build / Preview / Lint
 npm run build
-
-# Preview production build
 npm run preview
-```
-
-### Linting
-
-```bash
-# Run ESLint
 npm run lint
 ```
 
+Scripts `start.sh` and `install.sh` wrap the same commands for convenience.
+
 ## Usage
 
-### 1. Process YouTube Videos
+### 1. Ingest & Split YouTube Videos
 
-1. Navigate to the home page
-2. Enter a YouTube URL
-3. Select a domain category (e.g., Education, Entertainment)
-4. Configure optional settings:
-   - VAD Aggressiveness (Voice Activity Detection)
-   - Padding durations
-5. Click "Split Audio" to begin processing
+1. Go to the dashboard, paste a YouTube URL, and choose a domain.
+2. Optionally tweak VAD aggressiveness and padding.
+3. Start the pipeline to push work into the Audio-Scraping-Service; monitor progress across the standard stages (split → transcribe → save → complete).
 
-### 2. Workflow Steps
+### 2. Transcription Workspace
 
-The application guides you through a multi-step workflow:
+- Navigate to `/transcription` for the new SPA replacement of the legacy SSR form.
+- `Get Audio` fetches `/audio/random` from the Transcription-Service and streams using `VITE_AUDIO_BASE_URL`.
+- Sinhala IME attaches automatically once the script loads; status is shown inline.
+- Capture metadata (gender, noise, code mixing, overlaps) and optionally mark clips as unsuitable with a supporting note.
+- Submit to `/transcription`; admins persist with the global context, so you always receive credit.
 
-1. **Split Audio**: Extract and split audio from YouTube video
-2. **Transcribe Clips**: Generate transcriptions for audio clips
-3. **Save to Cloud**: Upload clips to cloud storage and database
-4. **Complete**: View results and cleanup
+### 3. Validation Console
 
-### 3. View Statistics
+- Navigate to `/validation` to pull `/validation/next` tasks.
+- Review stats from `/validation/stats`, edit metadata, and push updates via `PUT /validation/{transcription_id}`.
+- Toggle admin reference copy for quick template text when needed.
 
-Navigate to the Statistics page (`/statistics`) to view:
+### 4. Leaderboard & Admin Tools
 
-- Total videos and audio clips processed
-- Transcription status and rates
-- Category-wise duration breakdown
-- Daily transcription trends
-- Admin contributions
-- Audio duration distribution
-- Transcription metadata (gender, noise, code-mixing, etc.)
+- The floating action button opens the leaderboard fed by `/admin/leaderboard?range=week|month|all`.
+- Press `Ctrl + \\`` (backtick) anywhere to open the admin selector dialog and switch identities; the choice is persisted in local storage.
+- The same dialog outlines shortcuts, Sinhala IME info, and troubleshooting tips.
+
+### 5. Statistics
+
+All previous `/statistics/*` visualizations remain available under `/statistics`, still backed by the Audio-Scraping-Service.
 
 ## API Integration
 
-The client communicates with the Audio-Scraping-Service backend through the following endpoints:
+### Audio-Scraping-Service (existing)
 
-### YouTube Processing
+- `POST /api/v1/split-audio` – Split YouTube videos.
+- `POST /api/v1/transcribe-clips`
+- `POST /api/v1/save-clips`
+- `DELETE /api/v1/delete-audio/{video_id}`
+- `POST /api/v1/clean-transcriptions/{video_id}`
+- `GET /api/v1/statistics/*` – Summary, categories, transcription status, daily trends, admin contributions, audio distribution.
 
-- `POST /api/v1/split-audio` - Split YouTube video into clips
-- `POST /api/v1/transcribe-clips` - Transcribe audio clips
-- `POST /api/v1/save-clips` - Save clips to cloud storage and database
-- `DELETE /api/v1/delete-audio/{video_id}` - Delete audio files
-- `POST /api/v1/clean-transcriptions/{video_id}` - Clean null transcriptions
+### Transcription-Service (new SPA-driven UI)
 
-### Statistics
+- `GET /audio/random` – Fetch queued audio (signed URL + metadata).
+- `POST /transcription` – Submit new transcription payloads with metadata + admin info.
+- `GET /validation/next` – Retrieve next transcription awaiting validation.
+- `PUT /validation/{transcription_id}` – Update/approve validation.
+- `GET /validation/stats` – Counters for pending/completed totals.
+- `GET /admin/leaderboard?range=all|week|month` – Aggregated admin contributions for floating leaderboard + standalone page.
 
-- `GET /api/v1/statistics` - Get all statistics
-- `GET /api/v1/statistics/summary` - Get summary data
-- `GET /api/v1/statistics/categories` - Get category durations
-- `GET /api/v1/statistics/transcription-status` - Get transcription status
-- `GET /api/v1/statistics/daily` - Get daily transcriptions
-- `GET /api/v1/statistics/admin-contributions` - Get admin contributions
-- `GET /api/v1/statistics/audio-distribution` - Get audio distribution
-
-## Project Structure
+## Project Structure Highlights
 
 ```
 SPEAK-Client/
-├── public/              # Static assets
+├── public/
+│   └── sin-phonetic-ime.js   # Legacy Sinhala IME served verbatim
 ├── src/
-│   ├── assets/          # Images, icons, etc.
-│   ├── components/      # React components
-│   │   ├── AudioClipsDisplay.tsx
-│   │   ├── CompletionView.tsx
-│   │   ├── ErrorBoundary.tsx
-│   │   ├── Footer.tsx
-│   │   ├── LoadingState.tsx
-│   │   ├── Navigation.tsx
-│   │   ├── ProgressIndicator.tsx
-│   │   ├── StatisticsFloatingButton.tsx
-│   │   ├── TranscriptionView.tsx
-│   │   ├── YoutubeUrlInput.tsx
-│   │   └── statistics/  # Statistics components
-│   ├── lib/             # Utilities and API
-│   │   ├── api.ts       # Main API client
-│   │   ├── statisticsApi.ts  # Statistics API
-│   │   └── utils.ts     # Helper functions
-│   ├── pages/           # Page components
-│   │   ├── index.ts
+│   ├── components/
+│   │   ├── layout/AppLayout.tsx
+│   │   ├── transcription/AudioPlayer.tsx
+│   │   ├── admin/AdminIndicator.tsx
+│   │   └── statistics/*
+│   ├── context/AdminContext.tsx  # Global admin state + shortcuts
+│   ├── hooks/useSinhalaIme.ts    # Attaches global IME controller
+│   ├── lib/
+│   │   ├── api.ts                # Audio-Scraping-Service client
+│   │   └── transcriptionServiceApi.ts
+│   ├── pages/
+│   │   ├── TranscriptionPage.tsx
+│   │   ├── ValidationPage.tsx
+│   │   ├── LeaderboardPage.tsx
 │   │   └── StatisticsPage.tsx
-│   ├── theme/           # MUI theme configuration
-│   │   └── theme.ts
-│   ├── App.tsx          # Main application component
-│   ├── main.tsx         # Application entry point
-│   └── index.css        # Global styles
-├── .env.example         # Environment variables example
-├── .gitignore          # Git ignore rules
-├── eslint.config.js    # ESLint configuration
-├── index.html          # HTML entry point
-├── install.sh          # Installation script
-├── package.json        # NPM dependencies
-├── postcss.config.js   # PostCSS configuration
-├── README.md           # This file
-├── start.sh            # Development server script
-├── tailwind.config.js  # Tailwind CSS configuration
-├── tsconfig.json       # TypeScript configuration
-└── vite.config.ts      # Vite configuration
+│   ├── App.tsx / main.tsx        # Router + providers
+│   └── styles, theme, types
+└── ... standard Vite config files
 ```
 
 ## Deployment
 
-### Building for Production
-
-```bash
-npm run build
-```
-
-This creates an optimized production build in the `dist/` directory.
-
-### Deployment Options
-
-#### Option 1: Static Hosting (Vercel, Netlify, etc.)
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel --prod
-```
-
-Set environment variables in your hosting platform:
-- `VITE_API_BASE_URL`: Your production backend API URL
-- `VITE_AUDIO_BASE_URL`: Your production backend URL
-
-#### Option 2: Docker
+1. Build: `npm run build` → emits `dist/` assets.
+2. Host via Vercel/Netlify/static server or the sample multi-stage Dockerfile below.
 
 ```dockerfile
-# Example Dockerfile
-FROM node:18-alpine as build
+FROM node:18-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -240,55 +172,29 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx","-g","daemon off;"]
 ```
 
-#### Option 3: Traditional Web Server
-
-Serve the `dist/` directory with any web server (Apache, Nginx, etc.)
-
-### Environment Configuration
-
-For production deployments, ensure:
-
-1. Backend API is accessible from the client
-2. CORS is properly configured on the backend
-3. Environment variables are set correctly
-4. HTTPS is enabled (recommended)
+Remember to configure all three environment variables wherever the site is hosted.
 
 ## Troubleshooting
 
-### Common Issues
-
-**Issue**: Cannot connect to backend API
-- **Solution**: Verify `VITE_API_BASE_URL` in `.env` is correct and backend is running
-
-**Issue**: CORS errors
-- **Solution**: Ensure backend CORS configuration includes your client URL
-
-**Issue**: Build fails
-- **Solution**: Clear node_modules and reinstall: `rm -rf node_modules && npm install`
-
-**Issue**: Port 5173 already in use
-- **Solution**: Either stop the process using that port or modify Vite config to use a different port
+- **Sinhala IME not available** → Ensure `sin-phonetic-ime.js` is served (check DevTools network) and the script is not blocked by a CSP.
+- **Auth/CORS errors** → Confirm both backend services whitelist the client origin and that URLs in `.env` have matching schemes/ports.
+- **Missing audio playback** → `VITE_AUDIO_BASE_URL` must match the host serving `/output` audio; if proxied, expose signed URLs accordingly.
+- **Leaderboard empty** → The Transcription-Service must be on the latest API build exposing `/admin/leaderboard` and seeded with admin data.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit changes: `git commit -am 'Add new feature'`
-4. Push to branch: `git push origin feature/your-feature`
-5. Submit a pull request
-
-## License
-
-This project is part of the SPEAK ASR system.
+1. Fork the repo and create a feature branch.
+2. Run `npm run lint` + `npm run build` before opening a PR.
+3. Include screenshots or clips when adding UI changes to keep the workflow easy to verify.
 
 ## Related Projects
 
-- [Audio-Scraping-Service](https://github.com/SPEAK-ASR/Audio-Scraping-Service) - Backend API service
-- [Transcription-Service](https://github.com/SPEAK-ASR/Transcription-Service) - Transcription management service
+- [Audio-Scraping-Service](https://github.com/SPEAK-ASR/Audio-Scraping-Service)
+- [Transcription-Service](https://github.com/SPEAK-ASR/Transcription-Service)
 
 ## Support
 
-For issues and questions, please open an issue on the GitHub repository
+Please open an issue in this repository if you encounter bugs or have feature requests.

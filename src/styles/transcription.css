@@ -1,0 +1,92 @@
+.ime-toggle-container {
+  margin: 8px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ime-toggle-text {
+  flex: 1;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+  gap: 8px;
+}
+
+.toggle-switch .toggle-input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  background: #cfd8dc;
+  border-radius: 999px;
+  border: 1px solid #b0bec5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  transition: background 0.2s ease;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  top: 1px;
+  left: 1px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: #1976d2;
+  color: #fff;
+}
+
+.toggle-input:checked + .toggle-slider::after {
+  transform: translateX(28px);
+}
+
+.toggle-text {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.ime-container {
+  position: relative;
+}
+
+.ime-chip {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  border: 1px solid #90a4ae;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.8);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ime-chip.si-active {
+  background: #1976d2;
+  color: #fff;
+  border-color: #1976d2;
+}

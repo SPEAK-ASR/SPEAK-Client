@@ -6,13 +6,16 @@ import { CssBaseline } from '@mui/material'
 import { theme } from './theme/theme'
 import './index.css'
 import App from './App.tsx'
+import { AdminProvider } from './context/AdminContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <AdminProvider>
+          <App />
+        </AdminProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

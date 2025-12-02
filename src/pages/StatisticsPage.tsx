@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,15 @@ import { DailyTranscriptionGraph } from '../components/statistics/DailyTranscrip
 import { AdminContributionChart } from '../components/statistics/AdminContributionChart';
 import { AudioDistributionGraph } from '../components/statistics/AudioDistributionGraph';
 import { TranscriptionMetadataChart } from '../components/statistics/TranscriptionMetadataChart';
+
+// Memoized chart components to prevent re-renders during sidebar hover
+const MemoizedSummaryCards = memo(SummaryCards);
+const MemoizedTranscriptionMetadataChart = memo(TranscriptionMetadataChart);
+const MemoizedTranscriptionStatusChart = memo(TranscriptionStatusChart);
+const MemoizedCategoryDurationChart = memo(CategoryDurationChart);
+const MemoizedAdminContributionChart = memo(AdminContributionChart);
+const MemoizedAudioDistributionGraph = memo(AudioDistributionGraph);
+const MemoizedDailyTranscriptionGraph = memo(DailyTranscriptionGraph);
 
 export function StatisticsPage() {
   const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
@@ -109,7 +118,7 @@ export function StatisticsPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', p: 2, pt: 4 }}>
+    <Box sx={{ maxWidth: '100%', width: '100%', mx: 'auto', p: 2, pt: 4, overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{ mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
@@ -152,26 +161,26 @@ export function StatisticsPage() {
 
       {/* Summary Cards */}
       <Box sx={{ mb: 2 }}>
-        <SummaryCards summary={statistics.summary} />
+        <MemoizedSummaryCards summary={statistics.summary} />
       </Box>
 
       {/* Main Charts Grid */}
       <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
         {/* Transcription Quality Metrics - Full Width */}
-        <TranscriptionMetadataChart data={statistics.transcription_metadata} />
+        <MemoizedTranscriptionMetadataChart data={statistics.transcription_metadata} />
 
         {/* Row 1: Two columns */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           {/* Left Column */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TranscriptionStatusChart data={statistics.transcription_status} />
-            <CategoryDurationChart data={statistics.category_durations} />
-            <AdminContributionChart data={statistics.admin_contributions} />
+            <MemoizedTranscriptionStatusChart data={statistics.transcription_status} />
+            <MemoizedCategoryDurationChart data={statistics.category_durations} />
+            <MemoizedAdminContributionChart data={statistics.admin_contributions} />
           </Box>
           {/* Right Column */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <AudioDistributionGraph data={statistics.audio_distribution} />
-            <DailyTranscriptionGraph 
+            <MemoizedAudioDistributionGraph data={statistics.audio_distribution} />
+            <MemoizedDailyTranscriptionGraph 
               data={statistics.daily_transcriptions} 
               days={dailyDays}
               onDaysChange={handleDailyDaysChange}
