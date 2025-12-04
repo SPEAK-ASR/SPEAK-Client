@@ -48,8 +48,8 @@ Define all backend endpoints in `.env` (see `.env.example`):
 
 ```env
 # Audio-Scraping-Service (YouTube ingestion, statistics)
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_AUDIO_BASE_URL=http://localhost:8000
+VITE_AUDIO_SCRAPING_API_URL=http://localhost:8000/api/v1
+VITE_AUDIO_SCRAPING_BASE_URL=http://localhost:8000
 
 # Transcription-Service (FastAPI)
 VITE_TRANSCRIPTION_API_URL=http://localhost:5000/api/v1
@@ -57,8 +57,8 @@ VITE_TRANSCRIPTION_API_URL=http://localhost:5000/api/v1
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | REST base URL for Audio-Scraping-Service | `http://localhost:8000/api/v1` |
-| `VITE_AUDIO_BASE_URL` | Direct host serving generated audio | `http://localhost:8000` |
+| `VITE_AUDIO_SCRAPING_API_URL` | REST base URL for Audio-Scraping-Service | `http://localhost:8000/api/v1` |
+| `VITE_AUDIO_SCRAPING_BASE_URL` | Direct host serving generated audio | `http://localhost:8000` |
 | `VITE_TRANSCRIPTION_API_URL` | FastAPI Transcription-Service base URL | `http://localhost:5000/api/v1` |
 
 > Both services enforce CORS; ensure your Vite dev server (`http://localhost:5173`) and production domain are whitelisted.
@@ -88,7 +88,7 @@ Scripts `start.sh` and `install.sh` wrap the same commands for convenience.
 ### 2. Transcription Workspace
 
 - Navigate to `/transcription` for the new SPA replacement of the legacy SSR form.
-- `Get Audio` fetches `/audio/random` from the Transcription-Service and streams using `VITE_AUDIO_BASE_URL`.
+- `Get Audio` fetches `/audio/random` from the Transcription-Service and streams using `VITE_AUDIO_SCRAPING_BASE_URL`.
 - Sinhala IME attaches automatically once the script loads; status is shown inline.
 - Capture metadata (gender, noise, code mixing, overlaps) and optionally mark clips as unsuitable with a supporting note.
 - Submit to `/transcription`; admins persist with the global context, so you always receive credit.
@@ -181,7 +181,7 @@ Remember to configure all three environment variables wherever the site is hoste
 
 - **Sinhala IME not available** → Ensure `sin-phonetic-ime.js` is served (check DevTools network) and the script is not blocked by a CSP.
 - **Auth/CORS errors** → Confirm both backend services whitelist the client origin and that URLs in `.env` have matching schemes/ports.
-- **Missing audio playback** → `VITE_AUDIO_BASE_URL` must match the host serving `/output` audio; if proxied, expose signed URLs accordingly.
+- **Missing audio playback** → `VITE_AUDIO_SCRAPING_BASE_URL` must match the host serving `/output` audio; if proxied, expose signed URLs accordingly.
 - **Leaderboard empty** → The Transcription-Service must be on the latest API build exposing `/admin/leaderboard` and seeded with admin data.
 
 ## Contributing
