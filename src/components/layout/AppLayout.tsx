@@ -12,6 +12,8 @@ import { useState } from 'react';
 import { Footer } from '../Footer';
 import { useAdmin } from '../../context/AdminContext';
 import { AdminSelectorDialog } from '../admin/AdminSelectorDialog';
+import { ServiceStatusIndicator } from './ServiceStatusIndicator';
+import { useServiceStatus } from '../../hooks/useServiceStatus';
 
 interface NavItem {
   label: string;
@@ -35,6 +37,7 @@ export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { admin, profiles, clearAdmin, isAdmin } = useAdmin();
+  const { services, refresh } = useServiceStatus();
 
   const currentProfile = admin ? profiles.find(p => p.id === admin) : null;
   const displayName = currentProfile?.displayName || 'Guest';
@@ -119,6 +122,7 @@ export function AppLayout() {
             );
           })}
         </List>
+        <ServiceStatusIndicator services={services} isDrawerOpen={open} onRefresh={refresh} />
         <Box
           sx={{
             p: 2,
