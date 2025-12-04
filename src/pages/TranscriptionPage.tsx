@@ -152,6 +152,7 @@ export function TranscriptionPage() {
       is_speaker_overlappings_exist: metadata.isOverlap,
       is_audio_suitable: true,
       admin: admin ?? undefined,
+      validated_at: admin ? new Date().toISOString() : undefined,
     };
 
     await submitTranscription(payload, 'Transcription submitted successfully. Loading next audio...');
