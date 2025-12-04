@@ -152,6 +152,7 @@ export function TranscriptionPage() {
       is_speaker_overlappings_exist: metadata.isOverlap,
       is_audio_suitable: true,
       admin: admin ?? undefined,
+      validated_at: admin ? new Date().toISOString() : undefined,
     };
 
     await submitTranscription(payload, 'Transcription submitted successfully. Loading next audio...');
@@ -335,27 +336,29 @@ export function TranscriptionPage() {
                   label="Multiple speakers overlapping"
                   sx={{ '.MuiTypography-root': { fontSize: '0.9rem' } }}
                 />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      onChange={event => {
-                        if (event.target.checked) {
-                          event.target.checked = false;
-                          setUnsuitableDialog(true);
-                        }
-                      }}
-                    />
-                  }
-                  label="This audio is not suitable for transcription"
-                  sx={{ '.MuiTypography-root': { fontSize: '0.9rem' } }}
-                />
               </Stack>
             </CardContent>
           </Card>
         </Box>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setUnsuitableDialog(true)}
+            disabled={submitting || loadingAudio || !audioTask}
+            sx={{
+              minWidth: 200,
+              borderColor: 'error.main',
+              color: 'error.main',
+              backgroundColor: 'transparent',
+              '&:hover': {
+                borderColor: 'error.dark',
+                backgroundColor: 'rgba(211, 47, 47, 0.04)',
+              },
+            }}
+          >
+            This audio is not suitable for transcription
+          </Button>
           <Button type="submit" variant="contained" endIcon={<SendIcon />} disabled={submitting || loadingAudio || !audioTask} sx={{ minWidth: 200 }}>
             Submit transcription
           </Button>

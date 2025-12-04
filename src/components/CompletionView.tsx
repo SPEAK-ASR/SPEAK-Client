@@ -1,25 +1,19 @@
 import { CheckCircle } from 'lucide-react';
 import { Button } from '@mui/material';
-import type { VideoMetadata } from '../lib/api';
 // Completion view for successful processing
 
 interface CompletionViewProps {
-  videoId: string;
-  videoMetadata: VideoMetadata | null;
   totalClips: number;
   transcriptionCount: number;
   onReset: () => void;
 }
 
 export function CompletionView({
-  totalClips, 
+  totalClips,
   transcriptionCount,
   onReset,
-  videoMetadata
 }: CompletionViewProps) {
 
-  const videoTitle = videoMetadata?.title ?? 'Video title unavailable';
-  const videoAuthor = videoMetadata?.uploader ?? 'Unknown creator';
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -54,18 +48,18 @@ export function CompletionView({
             </div>
           </div>
         </div>
-          <Button
-            onClick={onReset}
-            variant="outlined"
-            size="medium"
-            sx={{ 
-              textTransform: 'none',
-              mb: 2
-            }}
-          >
-            Process Another Video
-          </Button>
-        
+        <Button
+          onClick={onReset}
+          variant="outlined"
+          size="medium"
+          sx={{
+            textTransform: 'none',
+            mb: 2
+          }}
+        >
+          Process Another Video
+        </Button>
+
 
         <div className="mt-6 text-xs text-muted-foreground">
           <p>Audio files are stored locally and in Google Cloud Storage</p>

@@ -19,7 +19,6 @@ export type ProcessingStep = 'input' | 'processing' | 'clips' | 'transcription' 
 function HomePage() {
   const [currentStep, setCurrentStep] = useState<ProcessingStep>('input');
   const [videoId, setVideoId] = useState<string>('');
-  const [domain, setDomain] = useState<string>('');
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
   const [clips, setClips] = useState<ClipData[]>([]);
   const [transcriptions, setTranscriptions] = useState<TranscribedClip[]>([]);
@@ -34,9 +33,8 @@ function HomePage() {
     setProcessingError(null);
   };
 
-  const handleClipsGenerated = (videoId: string, domain: string, metadata: VideoMetadata, clipsData: ClipData[]) => {
+  const handleClipsGenerated = (videoId: string, metadata: VideoMetadata, clipsData: ClipData[]) => {
     setVideoId(videoId);
-    setDomain(domain);
     setVideoMetadata(metadata);
     setClips(clipsData);
     setCurrentStep('clips');
@@ -78,7 +76,6 @@ function HomePage() {
   const handleReset = () => {
     setCurrentStep('input');
     setVideoId('');
-    setDomain('');
     setVideoMetadata(null);
     setClips([]);
     setTranscriptions([]);
@@ -98,14 +95,14 @@ function HomePage() {
     <Box sx={{ minHeight: '100vh' }}>
       <Box sx={{ p: 1.5 }}>
         <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-          <Box sx={{ textAlign: 'center', mb: 2, mt: 0.5}}>
+          <Box sx={{ textAlign: 'center', mb: 2, mt: 0.5 }}>
             <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 0.5 }}>
               Audio Processor
             </Typography>
-            <Typography 
-              variant="body1" 
-              color="text.secondary" 
-              sx={{ 
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{
                 '& .highlight': {
                   color: 'primary.main',
                   fontWeight: 500,
@@ -122,14 +119,14 @@ function HomePage() {
               </Typography>
             </Typography>
           </Box>
-          <ProgressIndicator 
-            currentStep={currentStep} 
+          <ProgressIndicator
+            currentStep={currentStep}
             isProcessing={isProcessing}
           />
 
           <Box sx={{ mt: 2 }}>
             {currentStep === 'input' && (
-              <YoutubeUrlInput 
+              <YoutubeUrlInput
                 onSubmit={handleYoutubeSubmit}
                 onClipsGenerated={handleClipsGenerated}
                 onError={handleProcessingError}
@@ -161,8 +158,6 @@ function HomePage() {
 
             {currentStep === 'complete' && (
               <CompletionView
-                videoId={videoId}
-                videoMetadata={videoMetadata}
                 totalClips={clips.length}
                 transcriptionCount={transcriptions.length}
                 onReset={handleReset}

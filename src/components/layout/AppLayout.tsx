@@ -34,7 +34,7 @@ const COLLAPSED_WIDTH = 72;
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const { admin, profiles, openSelector, clearAdmin, isAdmin } = useAdmin();
+  const { admin, profiles, clearAdmin, isAdmin } = useAdmin();
 
   const currentProfile = admin ? profiles.find(p => p.id === admin) : null;
   const displayName = currentProfile?.displayName || 'Guest';

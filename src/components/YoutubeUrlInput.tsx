@@ -19,7 +19,7 @@ import { audioApi, type ClipData, type VideoMetadata } from '../lib/api';
 
 interface YoutubeUrlInputProps {
   onSubmit: () => void;
-  onClipsGenerated: (videoId: string, domain: string, metadata: VideoMetadata, clips: ClipData[]) => void;
+  onClipsGenerated: (videoId: string, metadata: VideoMetadata, clips: ClipData[]) => void;
   onError: (errorMessage: string) => void;
   initialError?: string | null;
 }
@@ -34,7 +34,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
   useEffect(() => {
     setError(initialError || null);
   }, [initialError]);
-  
+
   // Advanced parameters with default values
   const [vadAggressiveness, setVadAggressiveness] = useState(2);
   const [startPadding, setStartPadding] = useState(1);
@@ -51,14 +51,14 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
     try {
       const response = await audioApi.splitAudio(url, domain, vadAggressiveness, startPadding, endPadding);
       if (response.success) {
-        onClipsGenerated(response.video_id, response.domain, response.video_metadata, response.clips);
+        onClipsGenerated(response.video_id, response.video_metadata, response.clips);
       } else {
         setError('Failed to process YouTube video');
         setIsLoading(false);
       }
     } catch (err) {
       let errorMessage = 'An error occurred';
-      
+
       if (err && typeof err === 'object' && 'response' in err) {
         const axiosError = err as any;
         if (axiosError.response?.status === 409) {
@@ -86,8 +86,8 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
             errorMessage = 'Server error occurred. Please try again later.';
           }
         } else if (axiosError.response?.data?.detail) {
-          errorMessage = typeof axiosError.response.data.detail === 'string' 
-            ? axiosError.response.data.detail 
+          errorMessage = typeof axiosError.response.data.detail === 'string'
+            ? axiosError.response.data.detail
             : 'Processing failed';
         } else if (axiosError.message) {
           errorMessage = axiosError.message;
@@ -95,7 +95,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       setIsLoading(false);
       onError(errorMessage); // Reset to input step in parent component
@@ -108,9 +108,9 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
   };
 
   return (
-    <Box 
-      sx={{ 
-        maxWidth: 600, 
+    <Box
+      sx={{
+        maxWidth: 600,
         mx: 'auto',
         bgcolor: 'background.paper',
         borderRadius: 2,
@@ -120,11 +120,11 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
       <CardContent sx={{ p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 3 }}>
-          <YouTube 
-            sx={{ 
-              fontSize: 32, 
+          <YouTube
+            sx={{
+              fontSize: 32,
               color: '#FF0000',
-            }} 
+            }}
           />
           <Typography variant="h5" component="h2" fontWeight="600" sx={{ fontSize: '1.25rem' }}>
             Enter YouTube URL
@@ -194,7 +194,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
                 Advanced Options
               </Typography>
             </Box>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {/* VAD Aggressiveness - Compact */}
               <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -228,7 +228,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
                     step={0.1}
                     disabled={isLoading}
                     size="small"
-                    sx={{ 
+                    sx={{
                       color: 'primary.main',
                       '& .MuiSlider-thumb': { width: 16, height: 16 },
                       '& .MuiSlider-track': { height: 3 },
@@ -250,7 +250,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
                     step={0.1}
                     disabled={isLoading}
                     size="small"
-                    sx={{ 
+                    sx={{
                       color: 'primary.main',
                       '& .MuiSlider-thumb': { width: 16, height: 16 },
                       '& .MuiSlider-track': { height: 3 },
@@ -263,9 +263,9 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
           </Box>
 
           {error && (
-            <Alert 
-              severity={error.includes('already been processed') ? 'warning' : 'error'} 
-              sx={{ 
+            <Alert
+              severity={error.includes('already been processed') ? 'warning' : 'error'}
+              sx={{
                 fontSize: '0.875rem',
                 '& .MuiAlert-message': {
                   fontSize: '0.875rem'

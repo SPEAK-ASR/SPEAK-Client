@@ -1,4 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import chirathImg from '../assets/profiles/chirath.png';
+import rusiraImg from '../assets/profiles/rusira.png';
+import kokilaImg from '../assets/profiles/kokila.png';
+import sahanImg from '../assets/profiles/sahan.png';
 
 export type AdminName = 'chirath' | 'rusira' | 'kokila' | 'sahan';
 
@@ -11,10 +15,10 @@ export interface AdminProfile {
 const ADMIN_STORAGE_KEY = 'adminName';
 
 const PROFILES: AdminProfile[] = [
-  { id: 'chirath', displayName: 'Chirath', imagePath: '/src/assets/profiles/chirath.png' },
-  { id: 'rusira', displayName: 'Rusira', imagePath: '/src/assets/profiles/rusira.png' },
-  { id: 'kokila', displayName: 'Kokila', imagePath: '/src/assets/profiles/kokila.png' },
-  { id: 'sahan', displayName: 'Sahan', imagePath: '/src/assets/profiles/sahan.png' },
+  { id: 'chirath', displayName: 'Chirath', imagePath: chirathImg },
+  { id: 'rusira', displayName: 'Rusira', imagePath: rusiraImg },
+  { id: 'kokila', displayName: 'Kokila', imagePath: kokilaImg },
+  { id: 'sahan', displayName: 'Sahan', imagePath: sahanImg },
 ];
 
 interface AdminContextValue {

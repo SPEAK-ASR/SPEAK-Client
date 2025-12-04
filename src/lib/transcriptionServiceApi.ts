@@ -28,6 +28,7 @@ export interface TranscriptionSubmissionPayload {
   is_speaker_overlappings_exist: boolean;
   is_audio_suitable: boolean;
   admin?: AdminName | null;
+  validated_at?: string | null;
 }
 
 export interface ValidationSubmissionPayload {
@@ -105,9 +106,10 @@ export const transcriptionServiceApi = {
   },
 
   async fetchLeaderboard(range: LeaderboardRange = 'all') {
-    const { data } = await transcriptionApi.get<AdminLeaderboardResponse>(`/admin/leaderboard`, {
-      params: { range },
-    });
+    const { data } = await axios.get<AdminLeaderboardResponse>(
+      `${TRANSCRIPTION_API_BASE_URL}/admin/leaderboard`,
+      { params: { range } },
+    );
     return data;
   },
 };
