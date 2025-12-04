@@ -32,7 +32,6 @@ import {
   transcriptionServiceApi,
   type SpeakerGender,
   type ValidationQueueItem,
-  type ValidationStats,
 } from '../lib/transcriptionServiceApi';
 import '../styles/transcription.css';
 
@@ -52,7 +51,6 @@ const DEFAULT_METADATA = {
 
 export function ValidationPage() {
   const [queueItem, setQueueItem] = useState<ValidationQueueItem | null>(null);
-  const [stats, setStats] = useState<ValidationStats | null>(null);
   const [metadata, setMetadata] = useState(DEFAULT_METADATA);
   const [loadingItem, setLoadingItem] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -73,7 +71,6 @@ export function ValidationPage() {
     
     async function initialize() {
       if (isMounted) {
-        await loadStats();
         await loadNextItem();
       }
     }
@@ -95,15 +92,6 @@ export function ValidationPage() {
       isOverlap: queueItem.transcription.is_speaker_overlappings_exist ?? false,
     });
   }, [queueItem]);
-
-  async function loadStats() {
-    try {
-      const nextStats = await transcriptionServiceApi.getValidationStats();
-      setStats(nextStats);
-    } catch (error) {
-      console.error(error);
-    }
-  }
 
   async function loadNextItem() {
     setLoadingItem(true);
@@ -157,7 +145,6 @@ export function ValidationPage() {
       setSubmitting(true);
       await transcriptionServiceApi.submitValidation(queueItem!.transcription.trans_id, payload);
       setSnackbar({ message: successMessage, severity: 'success' });
-      await loadStats();
       await loadNextItem();
     } catch (error) {
       console.error(error);
@@ -205,7 +192,6 @@ export function ValidationPage() {
     await submitValidation(payload, 'Audio marked as unsuitable. Loading next item...');
   }
 
-  const progressPercent = stats && stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
   const referenceText = useMemo(() => queueItem?.audio.google_transcription?.trim(), [queueItem]);
 
   return (
