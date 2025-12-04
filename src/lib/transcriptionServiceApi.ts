@@ -8,9 +8,6 @@ const transcriptionApi = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// helper: base without `/v1` for leaderboard endpoint
-const ROOT_API_BASE_URL = TRANSCRIPTION_API_BASE_URL.replace(/\/v1\/?$/, '');
-
 export interface AudioTask {
   audio_id: string;
   audio_filename: string;
@@ -31,6 +28,7 @@ export interface TranscriptionSubmissionPayload {
   is_speaker_overlappings_exist: boolean;
   is_audio_suitable: boolean;
   admin?: AdminName | null;
+  validated_at?: string | null;
 }
 
 export interface ValidationSubmissionPayload {
@@ -109,7 +107,7 @@ export const transcriptionServiceApi = {
 
   async fetchLeaderboard(range: LeaderboardRange = 'all') {
     const { data } = await axios.get<AdminLeaderboardResponse>(
-      `${ROOT_API_BASE_URL}/admin-leaderboard`,
+      `${TRANSCRIPTION_API_BASE_URL}/admin/leaderboard`,
       { params: { range } },
     );
     return data;
