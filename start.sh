@@ -30,7 +30,7 @@ fi
 
 echo "🚀 Starting Vite development server..."
 echo "   Client will be available at: http://localhost:5173"
-echo "   API Backend: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}"
+echo "   API Backend: ${VITE_AUDIO_SCRAPING_API_URL:-http://localhost:8000/api/v1}"
 echo ""
 echo "   Press Ctrl+C to stop the server"
 echo ""
