@@ -11,7 +11,7 @@ interface UseChannelCardsResult {
 }
 
 const AUDIO_API_BASE =
-    import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+    import.meta.env.VITE_AUDIO_SCRAPING_API_URL ?? 'http://localhost:8000/api/v1';
 
 export function useChannelCards(): UseChannelCardsResult {
     const [channels, setChannels] = useState<ChannelCard[]>([]);
