@@ -21,10 +21,10 @@ const ChannelBrowserPage: React.FC = () => {
                         }}
                     >
                         <SearchIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-                        Channels
+                        Sinhala YouTube Channels
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        Browse and manage YouTube channels for Audio Scraping
+                        Browse and find YouTube channels for Audio Scraping
                     </Typography>
                 </Box>
 

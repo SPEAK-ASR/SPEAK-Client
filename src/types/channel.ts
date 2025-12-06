@@ -1,7 +1,7 @@
 // src/types/channel.ts
 export interface ChannelCard {
     channelId: string;
-    topicCategories: string[];
+    domain: string;
     thumbnailUrl?: string;
-    isDeleted?: boolean; // <--- NEW
+    isDeleted?: boolean;
 }

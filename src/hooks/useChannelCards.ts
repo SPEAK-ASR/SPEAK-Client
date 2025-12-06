@@ -10,7 +10,6 @@ interface UseChannelCardsResult {
     deleteChannel: (channelId: string) => Promise<void>;
 }
 
-// From .env (e.g. http://localhost:8000/api/v1)
 const AUDIO_API_BASE =
     import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
@@ -29,7 +28,7 @@ export function useChannelCards(): UseChannelCardsResult {
             }
             const data = (await res.json()) as ChannelCard[];
 
-            // 🔑 Hide any channels that are already soft-deleted
+            // Hide any channels that are already soft-deleted
             const visible = data.filter(ch => !ch.isDeleted);
             setChannels(visible);
         } catch (e: any) {

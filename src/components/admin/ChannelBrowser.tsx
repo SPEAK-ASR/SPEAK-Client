@@ -3,15 +3,30 @@ import React, { useMemo, useState } from 'react';
 import { useChannelCards } from '../../hooks/useChannelCards';
 import type { ChannelCard } from '../../types/channel';
 
-const humanizeTopic = (raw: string): string => {
-    // "https://en.wikipedia.org/wiki/Film" -> "Film"
-    try {
-        const parts = raw.split('/');
-        const last = parts[parts.length - 1] || raw;
-        return decodeURIComponent(last).replace(/_/g, ' ');
-    } catch {
-        return raw;
-    }
+// domain categories mapping to display names
+const DOMAIN_DISPLAY_NAMES: Record<string, string> = {
+    'education': 'Education',
+    'health': 'Health',
+    'politics_and_government': 'Politics and Government',
+    'news_and_current_affairs': 'News and Current Affairs',
+    'science': 'Science',
+    'technology_and_computing': 'Technology and Computing',
+    'business_and_finance': 'Business and Finance',
+    'entertainment': 'Entertainment',
+    'food_and_drink': 'Food and Drink',
+    'law_and_justice': 'Law and Justice',
+    'environment_and_sustainability': 'Environment and Sustainability',
+    'religion': 'Religion',
+    'media_marketing': 'Media Marketing',
+    'history_and_cultural': 'History and Cultural',
+    'work_and_careers': 'Work and Careers',
+    'sports': 'Sports',
+    'music': 'Music',
+    'others': 'Others'
+};
+
+const getDisplayCategoryName = (domain: string): string => {
+    return DOMAIN_DISPLAY_NAMES[domain.toLowerCase()] || 'Others';
 };
 
 export const ChannelBrowser: React.FC = () => {
@@ -22,21 +37,44 @@ export const ChannelBrowser: React.FC = () => {
         const map = new Map<string, ChannelCard[]>();
 
         channels.forEach(ch => {
-            if (!ch.topicCategories || ch.topicCategories.length === 0) {
-                const list = map.get('Uncategorized') ?? [];
+            if (!ch.domain || ch.domain.trim() === '') {
+                const list = map.get('Others') ?? [];
                 list.push(ch);
-                map.set('Uncategorized', list);
+                map.set('Others', list);
             } else {
-                ch.topicCategories.forEach(topic => {
-                    const label = humanizeTopic(topic);
-                    const list = map.get(label) ?? [];
-                    list.push(ch);
-                    map.set(label, list);
-                });
+                // Get display name for the domain
+                const displayName = getDisplayCategoryName(ch.domain);
+                const list = map.get(displayName) ?? [];
+                list.push(ch);
+                map.set(displayName, list);
             }
         });
 
-        return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+        // Sort by predefined order
+        const categoryOrder = [
+            'Education',
+            'Health',
+            'Politics and Government',
+            'News and Current Affairs',
+            'Science',
+            'Technology and Computing',
+            'Business and Finance',
+            'Entertainment',
+            'Food and Drink',
+            'Law and Justice',
+            'Environment and Sustainability',
+            'Religion',
+            'Media Marketing',
+            'History and Cultural',
+            'Work and Careers',
+            'Sports',
+            'Music',
+            'Others'
+        ];
+
+        return categoryOrder
+            .filter(category => map.has(category))
+            .map(category => [category, map.get(category)!] as [string, ChannelCard[]]);
     }, [channels]);
 
     const handleDelete = async (channelId: string) => {
@@ -55,13 +93,15 @@ export const ChannelBrowser: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-black text-white px-8 py-6">
-            {/* <header className="mb-8 flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-red-600">
-                    Sinhala YouTube Channels
-                </h1>
-            </header> */}
 
-            {loading && <p className="text-gray-400">Loading channels…</p>}
+            {loading && (
+                <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center gap-3">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                        <p className="text-gray-400">Loading channels…</p>
+                    </div>
+                </div>
+            )}
             {error && (
                 <p className="mb-4 text-sm text-red-400">
                     Error loading channels: {error}
