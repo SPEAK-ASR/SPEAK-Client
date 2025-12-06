@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Validation', path: '/validation', icon: <CheckCircleIcon />, adminOnly: true },
   { label: 'Leaderboard', path: '/leaderboard', icon: <LeaderboardIcon />, adminOnly: true },
   { label: 'Statistics', path: '/statistics', icon: <QueryStatsIcon />, adminOnly: true },
+  { label: 'YouTube Channels', path: '/channels', icon: <QueryStatsIcon />, adminOnly: true },
 ];
 
 const DRAWER_WIDTH = 240;

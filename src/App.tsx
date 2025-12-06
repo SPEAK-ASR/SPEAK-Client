@@ -13,6 +13,7 @@ import { TranscriptionPage } from './pages/TranscriptionPage';
 import { ValidationPage } from './pages/ValidationPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import type { ClipData, TranscribedClip, VideoMetadata } from './lib/api';
+import ChannelBrowserPage from './pages/ChannelBrowserPage';
 
 export type ProcessingStep = 'input' | 'processing' | 'clips' | 'transcription' | 'storage' | 'complete';
 
@@ -208,6 +209,7 @@ function App() {
         <Route path="transcription" element={<TranscriptionPage />} />
         <Route path="validation" element={<ValidationPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="channels" element={<ChannelBrowserPage />} />
       </Route>
     </Routes>
   );
