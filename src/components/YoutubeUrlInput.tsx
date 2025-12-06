@@ -182,6 +182,8 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
               <MenuItem value="media_marketing">Media Marketing</MenuItem>
               <MenuItem value="history_and_cultural">History and Cultural</MenuItem>
               <MenuItem value="work_and_careers">Work and Careers</MenuItem>
+              <MenuItem value="sports">Sports</MenuItem>
+              <MenuItem value="music">Music</MenuItem>
               <MenuItem value="others">Others</MenuItem>
             </Select>
           </FormControl>
