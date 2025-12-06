@@ -1,4 +1,3 @@
-// src/pages/ChannelBrowserPage.tsx
 import React from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';

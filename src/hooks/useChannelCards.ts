@@ -28,7 +28,10 @@ export function useChannelCards(): UseChannelCardsResult {
                 throw new Error(`Failed to fetch channels: ${res.status}`);
             }
             const data = (await res.json()) as ChannelCard[];
-            setChannels(data);
+
+            // 🔑 Hide any channels that are already soft-deleted
+            const visible = data.filter(ch => !ch.isDeleted);
+            setChannels(visible);
         } catch (e: any) {
             console.error(e);
             setError(e.message ?? 'Unknown error');
@@ -50,11 +53,12 @@ export function useChannelCards(): UseChannelCardsResult {
             if (!res.ok && res.status !== 204) {
                 throw new Error(`Failed to delete channel: ${res.status}`);
             }
-            // Optimistic update
+
+            // Optimistic update – immediately hide the deleted channel
             setChannels(prev => prev.filter(c => c.channelId !== channelId));
         } catch (e) {
             console.error(e);
-            // optional: show snackbar/toast
+            // optional: surface a toast/snackbar here
         }
     }, []);
 

@@ -1,5 +1,5 @@
 // src/components/admin/ChannelBrowser.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useChannelCards } from '../../hooks/useChannelCards';
 import type { ChannelCard } from '../../types/channel';
 
@@ -16,6 +16,7 @@ const humanizeTopic = (raw: string): string => {
 
 export const ChannelBrowser: React.FC = () => {
     const { channels, loading, error, deleteChannel } = useChannelCards();
+    const [deletingChannels, setDeletingChannels] = useState<Set<string>>(new Set());
 
     const channelsByCategory = useMemo(() => {
         const map = new Map<string, ChannelCard[]>();
@@ -35,17 +36,30 @@ export const ChannelBrowser: React.FC = () => {
             }
         });
 
-        return Array.from(map.entries()).sort(([a, b]) => a.localeCompare(b));
+        return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
     }, [channels]);
+
+    const handleDelete = async (channelId: string) => {
+        setDeletingChannels(prev => new Set([...prev, channelId]));
+        try {
+            await deleteChannel(channelId);
+        } catch (error) {
+            // If delete fails, remove from deleting state
+            setDeletingChannels(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(channelId);
+                return newSet;
+            });
+        }
+    };
 
     return (
         <div className="min-h-screen bg-black text-white px-8 py-6">
-            <header className="mb-8 flex items-center justify-between">
+            {/* <header className="mb-8 flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-red-600">
                     Sinhala YouTube Channels
                 </h1>
-                <span className="text-sm text-gray-300">Admin · Channel Browser</span>
-            </header>
+            </header> */}
 
             {loading && <p className="text-gray-400">Loading channels…</p>}
             {error && (
@@ -60,13 +74,16 @@ export const ChannelBrowser: React.FC = () => {
                         <h2 className="text-xl font-semibold">{category}</h2>
 
                         <div className="flex gap-4 overflow-x-auto pb-3">
-                            {list.map(ch => (
-                                <ChannelCardItem
-                                    key={`${category}-${ch.channelId}`}
-                                    channel={ch}
-                                    onDelete={deleteChannel}
-                                />
-                            ))}
+                            {list
+                                .filter(ch => !deletingChannels.has(ch.channelId))
+                                .map(ch => (
+                                    <ChannelCardItem
+                                        key={`${category}-${ch.channelId}`}
+                                        channel={ch}
+                                        onDelete={handleDelete}
+                                        isDeleting={deletingChannels.has(ch.channelId)}
+                                    />
+                                ))}
                         </div>
                     </section>
                 ))}
@@ -82,55 +99,67 @@ export const ChannelBrowser: React.FC = () => {
 interface ChannelCardItemProps {
     channel: ChannelCard;
     onDelete: (channelId: string) => Promise<void>;
+    isDeleting?: boolean;
 }
 
 const ChannelCardItem: React.FC<ChannelCardItemProps> = ({
     channel,
     onDelete,
+    isDeleting = false,
 }) => {
     const youtubeUrl = `https://www.youtube.com/channel/${channel.channelId}`;
 
-    const handleDelete = (e: React.MouseEvent) => {
-        // prevent card link from opening when deleting
+    const handleView = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        void onDelete(channel.channelId);
+        window.open(youtubeUrl, '_blank', 'noopener,noreferrer');
     };
 
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await onDelete(channel.channelId);
+    };
+
+    if (isDeleting) {
+        return null; // Hide immediately when deleting starts
+    }
+
     return (
-        <a
-            href={youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative flex-shrink-0 w-56 h-40 rounded-lg overflow-hidden bg-zinc-900/80 shadow-lg transform transition duration-200 hover:scale-105 cursor-pointer"
-        >
+        <div className="group relative flex-shrink-0 w-56 h-48 rounded-lg overflow-hidden bg-zinc-900/80 shadow-lg transform transition duration-200 hover:scale-105">
+            {/* Thumbnail */}
             {channel.thumbnailUrl ? (
                 <img
                     src={channel.thumbnailUrl}
-                    alt={channel.channelId}
+                    alt={`Channel ${channel.channelId}`}
                     className="absolute inset-0 h-full w-full object-cover"
                 />
             ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-emerald-500" />
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            {/* Dark gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-            <div className="relative z-10 flex h-full flex-col justify-end p-3 space-y-1">
-                <p className="text-xs text-gray-300 uppercase tracking-wide truncate">
-                    {channel.channelId}
-                </p>
-                {/* category line removed as requested */}
+            {/* Action buttons at the bottom */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-2">
+                <div className="flex gap-2 justify-center">
+                    <button
+                        onClick={handleView}
+                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150"
+                        title="View channel on YouTube"
+                    >
+                        View
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150"
+                        title="Delete channel"
+                    >
+                        Delete
+                    </button>
+                </div>
             </div>
-
-            <div className="pointer-events-none absolute inset-0 flex items-start justify-end opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
-                <button
-                    onClick={handleDelete}
-                    className="m-2 rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-red-500"
-                >
-                    Delete
-                </button>
-            </div>
-        </a>
+        </div>
     );
 };
