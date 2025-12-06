@@ -186,10 +186,10 @@ const ChannelCardItem: React.FC<ChannelCardItemProps> = ({
                 <div className="flex gap-2 justify-center">
                     <button
                         onClick={handleView}
-                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150"
-                        title="View channel on YouTube"
+                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150 truncate"
+                        title={`View ${channel.channelTitle} on YouTube`}
                     >
-                        View
+                        {channel.channelTitle}
                     </button>
                     <button
                         onClick={handleDelete}
