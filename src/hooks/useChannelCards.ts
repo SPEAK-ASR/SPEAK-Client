@@ -1,5 +1,6 @@
 // src/hooks/useChannelCards.ts
 import { useEffect, useState, useCallback } from 'react';
+import axios from 'axios';
 import type { ChannelCard } from '../types/channel';
 
 interface UseChannelCardsResult {
@@ -22,11 +23,8 @@ export function useChannelCards(): UseChannelCardsResult {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${AUDIO_API_BASE}/channels`);
-            if (!res.ok) {
-                throw new Error(`Failed to fetch channels: ${res.status}`);
-            }
-            const data = (await res.json()) as ChannelCard[];
+            const response = await axios.get<ChannelCard[]>(`${AUDIO_API_BASE}/channels`);
+            const data = response.data;
 
             // Hide any channels that are already soft-deleted
             const visible = data.filter(ch => !ch.isDeleted);
@@ -45,13 +43,9 @@ export function useChannelCards(): UseChannelCardsResult {
 
     const deleteChannel = useCallback(async (channelId: string) => {
         try {
-            const res = await fetch(
-                `${AUDIO_API_BASE}/channels/${encodeURIComponent(channelId)}`,
-                { method: 'DELETE' }
+            await axios.delete(
+                `${AUDIO_API_BASE}/channels/${encodeURIComponent(channelId)}`
             );
-            if (!res.ok && res.status !== 204) {
-                throw new Error(`Failed to delete channel: ${res.status}`);
-            }
 
             // Optimistic update – immediately hide the deleted channel
             setChannels(prev => prev.filter(c => c.channelId !== channelId));
