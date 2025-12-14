@@ -50,8 +50,9 @@ export function useChannelCards(): UseChannelCardsResult {
             // Optimistic update – immediately hide the deleted channel
             setChannels(prev => prev.filter(c => c.channelId !== channelId));
         } catch (e) {
-            console.error(e);
-            // optional: surface a toast/snackbar here
+            console.error('Failed to delete channel:', e);
+            // Re-throw the error so the caller can handle it
+            throw e;
         }
     }, []);
 

@@ -8,6 +8,7 @@ import {
     CircularProgress,
     IconButton,
     Skeleton,
+    Snackbar,
     Stack,
     Typography,
     useTheme,
@@ -43,9 +44,15 @@ const getDisplayCategoryName = (domain: string): string => {
     return DOMAIN_DISPLAY_NAMES[domain.toLowerCase()] || 'Others';
 };
 
+interface SnackbarState {
+    message: string;
+    severity: 'success' | 'error' | 'info';
+}
+
 export const ChannelBrowser: React.FC = () => {
     const { channels, loading, error, deleteChannel } = useChannelCards();
     const [deletingChannels, setDeletingChannels] = useState<Set<string>>(new Set());
+    const [snackbar, setSnackbar] = useState<SnackbarState | null>(null);
 
     const channelsByCategory = useMemo(() => {
         const map = new Map<string, ChannelCard[]>();
@@ -93,12 +100,17 @@ export const ChannelBrowser: React.FC = () => {
         setDeletingChannels(prev => new Set([...prev, channelId]));
         try {
             await deleteChannel(channelId);
+            // Successfully deleted - keep it in deletingChannels to hide it
+            setSnackbar({ message: 'Channel deleted successfully', severity: 'success' });
         } catch (err) {
+            // Deletion failed - remove from deletingChannels to restore visibility
+            console.error('Failed to delete channel:', err);
             setDeletingChannels(prev => {
                 const next = new Set(prev);
                 next.delete(channelId);
                 return next;
             });
+            setSnackbar({ message: 'Failed to delete channel. Please try again.', severity: 'error' });
         }
     };
 
@@ -185,6 +197,14 @@ export const ChannelBrowser: React.FC = () => {
                         </Typography>
                     )}
                 </Stack>
+            )}
+
+            {snackbar && (
+                <Snackbar open autoHideDuration={4000} onClose={() => setSnackbar(null)}>
+                    <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} variant="filled">
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
             )}
         </Stack>
     );
