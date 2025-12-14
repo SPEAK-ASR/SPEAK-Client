@@ -8,6 +8,7 @@ import MicIcon from '@mui/icons-material/Mic';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import QueryStatsIcon from '@mui/icons-material/QueryStats';
+import YouTubeIcon from '@mui/icons-material/YouTube';
 import { useState } from 'react';
 import { Footer } from '../Footer';
 import { useAdmin } from '../../context/AdminContext';
@@ -28,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Validation', path: '/validation', icon: <CheckCircleIcon />, adminOnly: true },
   { label: 'Leaderboard', path: '/leaderboard', icon: <LeaderboardIcon />, adminOnly: true },
   { label: 'Statistics', path: '/statistics', icon: <QueryStatsIcon />, adminOnly: true },
-  { label: 'YouTube Channels', path: '/channels', icon: <QueryStatsIcon />, adminOnly: true },
+  { label: 'YouTube Channels', path: '/channels', icon: <YouTubeIcon />, adminOnly: true },
 ];
 
 const DRAWER_WIDTH = 240;
