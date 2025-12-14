@@ -1,30 +1,36 @@
 import React from 'react';
 import { Box, Typography, Stack } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
+import YouTubeIcon from '@mui/icons-material/YouTube';
 import { ChannelBrowser } from '../components/admin/ChannelBrowser';
 
 const ChannelBrowserPage: React.FC = () => {
     return (
-        <Box sx={{ maxWidth: 1200, mx: 'auto', py: 4 }}>
-            <Stack spacing={4}>
+        <Box
+            sx={{
+                minHeight: '100vh',
+                // bgcolor: '#0b0b0f',
+                color: '#f5f5f5',
+                px: { xs: 2.5, sm: 3.5, md: 5 },
+                py: { xs: 4 },
+            }}
+        >
+            <Stack spacing={5} sx={{ maxWidth: 1400, mx: 'auto' }}>
                 {/* Header */}
                 <Box sx={{ textAlign: 'center' }}>
                     <Typography
                         variant="h3"
-                        fontWeight="bold"
+                        fontWeight={800}
+                        gutterBottom
                         sx={{
                             mb: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 1,
+                            letterSpacing: 0.2,
                         }}
                     >
-                        <SearchIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                        <YouTubeIcon sx={{ fontSize: 60, color: '#fd3e3eff', pr: 2 }} />
                         Sinhala YouTube Channels
                     </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Browse and find YouTube channels for Audio Scraping
+                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                        Browse and shortlist channels to feed the audio scraper
                     </Typography>
                 </Box>
 

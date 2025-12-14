@@ -1,28 +1,42 @@
 // src/components/admin/ChannelBrowser.tsx
 import React, { useMemo, useState } from 'react';
-import { useChannelCards } from '../../hooks/useChannelCards';
+import {
+    Alert,
+    Box,
+    Card,
+    CardActionArea,
+    CircularProgress,
+    IconButton,
+    Skeleton,
+    Stack,
+    Typography,
+    useTheme,
+} from '@mui/material';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import type { ChannelCard } from '../../types/channel';
+import { useChannelCards } from '../../hooks/useChannelCards';
 
 // domain categories mapping to display names
 const DOMAIN_DISPLAY_NAMES: Record<string, string> = {
-    'education': 'Education',
-    'health': 'Health',
-    'politics_and_government': 'Politics and Government',
-    'news_and_current_affairs': 'News and Current Affairs',
-    'science': 'Science',
-    'technology_and_computing': 'Technology and Computing',
-    'business_and_finance': 'Business and Finance',
-    'entertainment': 'Entertainment',
-    'food_and_drink': 'Food and Drink',
-    'law_and_justice': 'Law and Justice',
-    'environment_and_sustainability': 'Environment and Sustainability',
-    'religion': 'Religion',
-    'media_marketing': 'Media Marketing',
-    'history_and_cultural': 'History and Cultural',
-    'work_and_careers': 'Work and Careers',
-    'sports': 'Sports',
-    'music': 'Music',
-    'others': 'Others'
+    education: 'Education',
+    health: 'Health',
+    politics_and_government: 'Politics and Government',
+    news_and_current_affairs: 'News and Current Affairs',
+    science: 'Science',
+    technology_and_computing: 'Technology and Computing',
+    business_and_finance: 'Business and Finance',
+    entertainment: 'Entertainment',
+    food_and_drink: 'Food and Drink',
+    law_and_justice: 'Law and Justice',
+    environment_and_sustainability: 'Environment and Sustainability',
+    religion: 'Religion',
+    media_marketing: 'Media Marketing',
+    history_and_cultural: 'History and Cultural',
+    work_and_careers: 'Work and Careers',
+    sports: 'Sports',
+    music: 'Music',
+    others: 'Others',
 };
 
 const getDisplayCategoryName = (domain: string): string => {
@@ -42,7 +56,6 @@ export const ChannelBrowser: React.FC = () => {
                 list.push(ch);
                 map.set('Others', list);
             } else {
-                // Get display name for the domain
                 const displayName = getDisplayCategoryName(ch.domain);
                 const list = map.get(displayName) ?? [];
                 list.push(ch);
@@ -50,7 +63,6 @@ export const ChannelBrowser: React.FC = () => {
             }
         });
 
-        // Sort by predefined order
         const categoryOrder = [
             'Education',
             'Health',
@@ -69,7 +81,7 @@ export const ChannelBrowser: React.FC = () => {
             'Work and Careers',
             'Sports',
             'Music',
-            'Others'
+            'Others',
         ];
 
         return categoryOrder
@@ -81,125 +93,246 @@ export const ChannelBrowser: React.FC = () => {
         setDeletingChannels(prev => new Set([...prev, channelId]));
         try {
             await deleteChannel(channelId);
-        } catch (error) {
-            // If delete fails, remove from deleting state
+        } catch (err) {
             setDeletingChannels(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(channelId);
-                return newSet;
+                const next = new Set(prev);
+                next.delete(channelId);
+                return next;
             });
         }
     };
 
     return (
-        <div className="min-h-screen bg-black text-white px-8 py-6">
-
-            {loading && (
-                <div className="flex items-center justify-center py-12">
-                    <div className="flex items-center gap-3">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                        <p className="text-gray-400">Loading channels…</p>
-                    </div>
-                </div>
-            )}
+        <Stack spacing={4} sx={{ color: '#f5f5f5' }}>
             {error && (
-                <p className="mb-4 text-sm text-red-400">
+                <Alert severity="error" sx={{ bgcolor: 'error.dark', color: 'common.white' }}>
                     Error loading channels: {error}
-                </p>
+                </Alert>
             )}
 
-            <main className="space-y-10">
-                {channelsByCategory.map(([category, list]) => (
-                    <section key={category} className="space-y-3">
-                        <h2 className="text-xl font-semibold">{category}</h2>
+            {loading && channels.length === 0 ? (
+                <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ py: 6 }}>
+                    <CircularProgress color="inherit" size={28} thickness={5} />
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        Loading channels…
+                    </Typography>
+                </Stack>
+            ) : (
+                <Stack spacing={4} component="main">
+                    {channelsByCategory.map(([category, list]) => (
+                        <Stack key={category} spacing={1} sx={{ overflow: 'visible', position: 'relative' }}>
+                            <Typography variant="h6" fontWeight={700} sx={{ px: 0.5 }}>
+                                {category}
+                            </Typography>
 
-                        <div className="flex gap-4 overflow-x-auto pb-3">
-                            {list
-                                .filter(ch => !deletingChannels.has(ch.channelId))
-                                .map(ch => (
-                                    <ChannelCardItem
-                                        key={`${category}-${ch.channelId}`}
-                                        channel={ch}
-                                        onDelete={handleDelete}
-                                        isDeleting={deletingChannels.has(ch.channelId)}
-                                    />
-                                ))}
-                        </div>
-                    </section>
-                ))}
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    gap: 2,
+                                    overflowX: 'auto',
+                                    overflowY: 'visible',
+                                    pt: 1.5,
+                                    pb: 1.5,
+                                    px: 0.5,
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor: '#2b2b31 transparent',
+                                    '&::-webkit-scrollbar': {
+                                        height: 8,
+                                    },
+                                    '&::-webkit-scrollbar-thumb': {
+                                        backgroundColor: '#2b2b31',
+                                        borderRadius: 999,
+                                        border: '1px solid #0f0f13',
+                                    },
+                                    '&::-webkit-scrollbar-thumb:hover': {
+                                        backgroundColor: '#34343d',
+                                    },
+                                    '&::-webkit-scrollbar-track': {
+                                        backgroundColor: '#0f0f13',
+                                    },
+                                }}
+                            >
+                                {list
+                                    .filter(ch => !deletingChannels.has(ch.channelId))
+                                    .map(ch => (
+                                        <ChannelCardItem
+                                            key={`${category}-${ch.channelId}`}
+                                            channel={ch}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
 
-                {!loading && !error && channelsByCategory.length === 0 && (
-                    <p className="text-gray-400">No channels found.</p>
-                )}
-            </main>
-        </div>
+                                {loading && (
+                                    <Stack direction="row" spacing={2}>
+                                        {Array.from({ length: 3 }).map((_, idx) => (
+                                            <Skeleton
+                                                key={`skeleton-${idx}`}
+                                                variant="rounded"
+                                                width={224}
+                                                height={148}
+                                                sx={{ bgcolor: 'grey.900', flexShrink: 0, borderRadius: 2 }}
+                                            />
+                                        ))}
+                                    </Stack>
+                                )}
+                            </Box>
+                        </Stack>
+                    ))}
+
+                    {!loading && !error && channelsByCategory.length === 0 && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', px: 0.5 }}>
+                            No channels found.
+                        </Typography>
+                    )}
+                </Stack>
+            )}
+        </Stack>
     );
 };
 
 interface ChannelCardItemProps {
     channel: ChannelCard;
     onDelete: (channelId: string) => Promise<void>;
-    isDeleting?: boolean;
 }
 
-const ChannelCardItem: React.FC<ChannelCardItemProps> = ({
-    channel,
-    onDelete,
-    isDeleting = false,
-}) => {
+const ChannelCardItem: React.FC<ChannelCardItemProps> = ({ channel, onDelete }) => {
+    const theme = useTheme();
     const youtubeUrl = `https://www.youtube.com/channel/${channel.channelId}`;
 
-    const handleView = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleView = (event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
         window.open(youtubeUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const handleDelete = async (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleDelete = async (event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
         await onDelete(channel.channelId);
     };
 
-    if (isDeleting) {
-        return null; // Hide immediately when deleting starts
-    }
+    const fallbackGradient = 'linear-gradient(135deg, #ff4d6d 0%, #6a4dff 50%, #00d2ff 100%)';
 
     return (
-        <div className="group relative flex-shrink-0 w-56 h-48 rounded-lg overflow-hidden bg-zinc-900/80 shadow-lg transform transition duration-200 hover:scale-105">
-            {/* Thumbnail */}
-            {channel.thumbnailUrl ? (
-                <img
-                    src={channel.thumbnailUrl}
-                    alt={`Channel ${channel.channelId}`}
-                    className="absolute inset-0 h-full w-full object-cover"
-                />
-            ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-emerald-500" />
-            )}
+        <Card
+            component={CardActionArea}
+            onClick={handleView}
+            sx={{
+                position: 'relative',
+                width: 224,
+                height: 148,
+                borderRadius: 2,
+                overflow: 'hidden',
+                flexShrink: 0,
+                backgroundColor: '#0f0f13',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+                transform: 'scale(1)',
+                transition: 'transform 180ms ease, box-shadow 180ms ease',
+                '&:hover': {
+                    transform: 'translateY(-6px) scale(1.08)',
+                    boxShadow: '0 18px 45px rgba(0,0,0,0.45)',
+                    zIndex: 2,
+                },
+                '&:hover .actions': {
+                    opacity: 1,
+                    height: 30,
+                    visibility: 'visible',
+                    transform: 'translateY(0)',
+                    pointerEvents: 'auto',
+                },
+            }}
+        >
+            <Box
+                sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: channel.thumbnailUrl
+                        ? `url(${channel.thumbnailUrl}) center/cover no-repeat`
+                        : fallbackGradient,
+                    filter: channel.thumbnailUrl ? 'saturate(1.05)' : 'none',
+                    transition: 'transform 180ms ease',
+                }}
+            />
 
-            {/* Dark gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+            <Box
+                sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.85) 80%)',
+                    pointerEvents: 'none',
+                }}
+            />
 
-            {/* Action buttons at the bottom */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 p-2">
-                <div className="flex gap-2 justify-center">
-                    <button
+            <Stack
+                spacing={1}
+                sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    p: 1.5,
+                    justifyContent: 'flex-end',
+                }}
+            >
+                <Typography
+                    variant="subtitle2"
+                    noWrap
+                    className="title"
+                    sx={{
+                        color: 'common.white',
+                        textShadow: '0 6px 12px rgba(0,0,0,0.7)',
+                        fontWeight: 700,
+                        transition: 'transform 180ms ease',
+                    }}
+                >
+                    {channel.channelTitle || 'Channel'}
+                </Typography>
+
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    className="actions"
+                    sx={{
+                        opacity: 0,
+                        height: 0,
+                        visibility: 'hidden',
+                        transform: 'translateY(12px)',
+                        transition: 'height 200ms ease, opacity 160ms ease, transform 180ms ease',
+                        overflow: 'hidden',
+                        pointerEvents: 'none',
+                    }}
+                >
+                    <IconButton
+                        size="small"
                         onClick={handleView}
-                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150 truncate"
-                        title={`View ${channel.channelTitle || 'channel'} on YouTube`}
+                        sx={{
+                            bgcolor: 'common.white',
+                            color: '#000',
+                            '&:hover': { bgcolor: 'grey.200' },
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
+                            width: 30,
+                            height: 30,
+                        }}
+                        aria-label={`Open ${channel.channelTitle || 'channel'} on YouTube`}
                     >
-                        {channel.channelTitle || 'View'}
-                    </button>
-                    <button
+                        <PlayArrowRoundedIcon fontSize="small" />
+                    </IconButton>
+
+                    <IconButton
+                        size="small"
                         onClick={handleDelete}
-                        className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-medium py-1.5 px-2 rounded transition-colors duration-150"
-                        title="Delete channel"
+                        sx={{
+                            bgcolor: theme.palette.error.main,
+                            color: 'common.white',
+                            '&:hover': { bgcolor: theme.palette.error.dark },
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
+                            width: 30,
+                            height: 30,
+                        }}
+                        aria-label="Delete channel"
                     >
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            </Stack>
+        </Card>
     );
 };
