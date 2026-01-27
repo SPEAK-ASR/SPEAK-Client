@@ -157,10 +157,11 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
 
           {/* Domain Selection */}
           <FormControl size="small" fullWidth required error={!domain && error !== null}>
-            <InputLabel>Video Category *</InputLabel>
+            <InputLabel id="video-category-label">Video Category</InputLabel>
             <Select
+              labelId="video-category-label"
               value={domain}
-              label="Video Category *"
+              label="Video Category"
               onChange={(e) => {
                 setDomain(e.target.value);
                 if (error) setError(null);
@@ -200,8 +201,9 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {/* VAD Aggressiveness - Compact */}
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel sx={{ fontSize: '0.875rem' }}>VAD Level</InputLabel>
+                <InputLabel id="vad-level-label" sx={{ fontSize: '0.875rem' }}>VAD Level</InputLabel>
                 <Select
+                  labelId="vad-level-label"
                   value={vadAggressiveness}
                   label="VAD Level"
                   onChange={(e) => setVadAggressiveness(Number(e.target.value))}
