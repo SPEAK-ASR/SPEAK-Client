@@ -6,7 +6,6 @@ import {
   Paper,
   Chip,
   LinearProgress,
-  Alert,
 } from "@mui/material";
 import {
   PlayArrow,
