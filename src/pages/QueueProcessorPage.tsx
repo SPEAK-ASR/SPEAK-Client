@@ -514,15 +514,6 @@ export function QueueProcessorPage() {
               </Box>
             </Paper>
 
-            {/* Info alert when processing */}
-            {isProcessing && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Pipeline processing: videos advance through stages (split →
-                transcribe → clean → save) with one video per stage. You can
-                stop at any time.
-              </Alert>
-            )}
-
             {/* Queue table */}
             <VideoQueueTable
               videos={queue}
