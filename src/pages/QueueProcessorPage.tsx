@@ -22,16 +22,7 @@ import {
 import { audioApi } from "../lib/api";
 import type { PlaylistVideo } from "../lib/api";
 import { DEFAULT_VIDEO_SETTINGS, STAGE_PROGRESS } from "../types/queue";
-import type { QueueVideo, VideoSettings, VideoStatus } from "../types/queue";
-
-// Pipeline stage capacity - how many videos can be in each stage simultaneously
-// Adjust these values to change concurrency per stage
-const STAGE_CAPACITY: Partial<Record<VideoStatus, number>> = {
-  splitting: 1, // Only 1 download at a time (heavy I/O)
-  transcribing: 1, // 1 transcription at a time
-  cleaning: 1, // 1 cleaning at a time
-  saving: 1, // 1 save at a time
-};
+import type { QueueVideo, VideoSettings } from "../types/queue";
 
 // Generate unique ID
 const generateId = () =>
@@ -58,8 +49,8 @@ export function QueueProcessorPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
   const abortRef = useRef(false);
-  // Track which videos are currently being processed to prevent double-processing
-  const processingRef = useRef<Set<string>>(new Set());
+  // Track if currently processing a video to prevent concurrent processing
+  const isProcessingVideoRef = useRef(false);
 
   // Count videos by status
   const statusCounts = queue.reduce(
@@ -144,19 +135,18 @@ export function QueueProcessorPage() {
     []
   );
 
-  // Pipeline stage processors - each handles one stage and marks video ready for next stage
-
-  // Stage 1: Split Audio (download and split)
-  const processSplitting = useCallback(
+  // Process a single video through all stages sequentially
+  const processVideoSequentially = useCallback(
     async (video: QueueVideo) => {
       const { id, url, settings } = video;
-      processingRef.current.add(id);
 
       try {
+        // Stage 1: Split Audio (download and split)
         updateVideo(id, {
           status: "splitting",
           progress: STAGE_PROGRESS.splitting,
         });
+
         const splitResult = await audioApi.splitAudio(
           url,
           settings.domain,
@@ -169,98 +159,47 @@ export function QueueProcessorPage() {
           throw new Error("Failed to split audio");
         }
 
-        // Update video with metadata and move to transcribing stage
+        const videoId = splitResult.video_id;
+
+        // Update video with metadata
         updateVideo(id, {
-          videoId: splitResult.video_id,
+          videoId: videoId,
           title: splitResult.video_metadata.title,
           thumbnail: splitResult.video_metadata.thumbnail,
           clipCount: splitResult.total_clips,
           status: "transcribing",
           progress: STAGE_PROGRESS.transcribing,
         });
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
-        updateVideo(id, { status: "error", progress: 0, error: errorMessage });
-      } finally {
-        processingRef.current.delete(id);
-      }
-    },
-    [updateVideo]
-  );
 
-  // Stage 2: Transcribe clips
-  const processTranscribing = useCallback(
-    async (video: QueueVideo) => {
-      const { id, videoId, settings } = video;
-      if (!videoId) return;
-      processingRef.current.add(id);
+        if (abortRef.current) throw new Error("Processing cancelled");
 
-      try {
+        // Stage 2: Transcribe clips
         const transcribeResult = await audioApi.transcribeClips(videoId);
 
         if (!transcribeResult.success || abortRef.current) {
           throw new Error("Failed to transcribe clips");
         }
 
-        // Move to cleaning or saving stage based on settings
+        // Stage 3: Clean null transcriptions (if enabled)
         if (settings.autoCleanNullTranscriptions) {
           updateVideo(id, {
             status: "cleaning",
             progress: STAGE_PROGRESS.cleaning,
           });
-        } else {
-          updateVideo(id, {
-            status: "saving",
-            progress: STAGE_PROGRESS.saving,
-          });
-        }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
-        updateVideo(id, { status: "error", progress: 0, error: errorMessage });
-      } finally {
-        processingRef.current.delete(id);
-      }
-    },
-    [updateVideo]
-  );
 
-  // Stage 3: Clean null transcriptions
-  const processCleaning = useCallback(
-    async (video: QueueVideo) => {
-      const { id, videoId } = video;
-      if (!videoId) return;
-      processingRef.current.add(id);
+          if (abortRef.current) throw new Error("Processing cancelled");
 
-      try {
-        await audioApi.cleanNullTranscriptions(videoId);
-
-        if (abortRef.current) {
-          throw new Error("Processing cancelled");
+          await audioApi.cleanNullTranscriptions(videoId);
         }
 
-        // Move to saving stage
-        updateVideo(id, { status: "saving", progress: STAGE_PROGRESS.saving });
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
-        updateVideo(id, { status: "error", progress: 0, error: errorMessage });
-      } finally {
-        processingRef.current.delete(id);
-      }
-    },
-    [updateVideo]
-  );
+        if (abortRef.current) throw new Error("Processing cancelled");
 
-  // Stage 4: Save to cloud
-  const processSaving = useCallback(
-    async (video: QueueVideo) => {
-      const { id, videoId } = video;
-      if (!videoId) return;
-      processingRef.current.add(id);
+        // Stage 4: Save to cloud
+        updateVideo(id, {
+          status: "saving",
+          progress: STAGE_PROGRESS.saving,
+        });
 
-      try {
         const saveResult = await audioApi.saveToCloud(videoId);
 
         if (!saveResult.success) {
@@ -273,16 +212,53 @@ export function QueueProcessorPage() {
           progress: STAGE_PROGRESS.complete,
           savedCount: saveResult.total_processed,
         });
+
+        return true;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
         updateVideo(id, { status: "error", progress: 0, error: errorMessage });
-      } finally {
-        processingRef.current.delete(id);
+        return false;
       }
     },
     [updateVideo]
   );
+
+  // Process queue sequentially - one video at a time
+  const processQueue = useCallback(async () => {
+    if (isProcessingVideoRef.current) return;
+    
+    isProcessingVideoRef.current = true;
+
+    // Get current queue state
+    let currentQueue = queue;
+
+    while (!abortRef.current) {
+      // Find next pending video
+      const nextVideo = currentQueue.find((v) => v.status === "pending");
+      
+      if (!nextVideo) {
+        // No more pending videos
+        break;
+      }
+
+      // Process this video through all stages
+      await processVideoSequentially(nextVideo);
+
+      // Get fresh queue state after processing
+      // We need to read from the actual state, so we use a workaround
+      await new Promise<void>((resolve) => {
+        setQueue((prev) => {
+          currentQueue = prev;
+          resolve();
+          return prev;
+        });
+      });
+    }
+
+    isProcessingVideoRef.current = false;
+    setIsProcessing(false);
+  }, [queue, processVideoSequentially]);
 
   // Retry a failed video
   const handleRetry = useCallback((id: string) => {
@@ -306,85 +282,13 @@ export function QueueProcessorPage() {
     setIsProcessing(false);
   }, []);
 
-  // Pipeline scheduler - processes videos through stages with capacity limits
+  // Sequential queue processor - processes one video at a time
   useEffect(() => {
     if (!isProcessing) return;
+    if (isProcessingVideoRef.current) return;
 
-    const schedulePipeline = () => {
-      // Count videos currently in each stage (excluding those being processed by ref)
-      const stageCounts: Partial<Record<VideoStatus, number>> = {};
-      for (const video of queue) {
-        if (processingRef.current.has(video.id)) {
-          stageCounts[video.status] = (stageCounts[video.status] || 0) + 1;
-        }
-      }
-
-      // Process each stage with capacity limits
-      // Stage 4: Saving - process videos ready for saving
-      const savingCount = stageCounts["saving"] || 0;
-      if (savingCount < (STAGE_CAPACITY.saving || 1)) {
-        const readyForSaving = queue.find(
-          (v) => v.status === "saving" && !processingRef.current.has(v.id)
-        );
-        if (readyForSaving) {
-          processSaving(readyForSaving);
-        }
-      }
-
-      // Stage 3: Cleaning - process videos ready for cleaning
-      const cleaningCount = stageCounts["cleaning"] || 0;
-      if (cleaningCount < (STAGE_CAPACITY.cleaning || 1)) {
-        const readyForCleaning = queue.find(
-          (v) => v.status === "cleaning" && !processingRef.current.has(v.id)
-        );
-        if (readyForCleaning) {
-          processCleaning(readyForCleaning);
-        }
-      }
-
-      // Stage 2: Transcribing - process videos ready for transcription
-      const transcribingCount = stageCounts["transcribing"] || 0;
-      if (transcribingCount < (STAGE_CAPACITY.transcribing || 1)) {
-        const readyForTranscribing = queue.find(
-          (v) => v.status === "transcribing" && !processingRef.current.has(v.id)
-        );
-        if (readyForTranscribing) {
-          processTranscribing(readyForTranscribing);
-        }
-      }
-
-      // Stage 1: Splitting - start pending videos (only if splitting stage has capacity)
-      const splittingCount = stageCounts["splitting"] || 0;
-      if (splittingCount < (STAGE_CAPACITY.splitting || 1)) {
-        const pendingVideo = queue.find(
-          (v) => v.status === "pending" && !processingRef.current.has(v.id)
-        );
-        if (pendingVideo) {
-          processSplitting(pendingVideo);
-        }
-      }
-
-      // Check if all done
-      const hasActive = queue.some((v) =>
-        ["pending", "splitting", "transcribing", "cleaning", "saving"].includes(
-          v.status
-        )
-      );
-
-      if (!hasActive && !abortRef.current) {
-        setIsProcessing(false);
-      }
-    };
-
-    schedulePipeline();
-  }, [
-    isProcessing,
-    queue,
-    processSplitting,
-    processTranscribing,
-    processCleaning,
-    processSaving,
-  ]);
+    processQueue();
+  }, [isProcessing, processQueue]);
 
   // Calculate overall progress
   const overallProgress =
@@ -417,7 +321,7 @@ export function QueueProcessorPage() {
             Queue Processor
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Process multiple YouTube videos with concurrent batch processing
+            Process multiple YouTube videos sequentially (one at a time)
           </Typography>
         </Box>
 
