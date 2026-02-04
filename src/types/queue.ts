@@ -27,7 +27,7 @@ export interface QueueVideo {
 
 export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
     domain: 'education',
-    vadAggressiveness: 2,
+    vadAggressiveness: 3,
     startPadding: 1,
     endPadding: 0.5,
     autoCleanNullTranscriptions: true,
@@ -43,6 +43,10 @@ export const STAGE_PROGRESS: Record<VideoStatus, number> = {
     complete: 100,
     error: 0,
 };
+
+// Maximum number of videos to process concurrently
+// Note: Set to 2 to avoid overwhelming PostgreSQL with connection requests
+export const CONCURRENT_VIDEO_LIMIT = 2;
 
 export const STAGE_LABELS: Record<VideoStatus, string> = {
     pending: 'Pending',
