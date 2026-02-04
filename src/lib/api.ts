@@ -93,7 +93,7 @@ export const audioApi = {
     splitAudio: async (
         youtubeUrl: string,
         domain: string,
-        vadAggressiveness: number = 2,
+        vadAggressiveness: number = 3,
         startPadding: number = 1.0,
         endPadding: number = 0.5
     ): Promise<AudioSplitResponse> => {

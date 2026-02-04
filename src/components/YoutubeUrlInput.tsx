@@ -36,7 +36,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
   }, [initialError]);
 
   // Advanced parameters with default values
-  const [vadAggressiveness, setVadAggressiveness] = useState(2);
+  const [vadAggressiveness, setVadAggressiveness] = useState(3);
   const [startPadding, setStartPadding] = useState(1);
   const [endPadding, setEndPadding] = useState(0.5);
 
