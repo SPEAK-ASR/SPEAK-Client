@@ -60,7 +60,7 @@ export function YoutubeUrlInput({ onSubmit, onClipsGenerated, onError, initialEr
       let errorMessage = 'An error occurred';
 
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: { detail?: string | { error?: string; video_title?: string; suggestion?: string } } } };
+        const axiosError = err as { response?: { status?: number; data?: { detail?: string | { error?: string; video_title?: string; suggestion?: string } } }; message?: string };
         if (axiosError.response?.status === 409) {
           // Handle video already exists error
           const errorData = axiosError.response?.data;
