@@ -197,16 +197,12 @@ function HomePage() {
     );
 }
 
-function StatisticsPageWrapper() {
-    return <StatisticsPage />;
-}
-
 function App() {
     return (
         <Routes>
             <Route element={<AppLayout />}>
                 <Route index element={<HomePage />} />
-                <Route path="statistics" element={<StatisticsPageWrapper />} />
+                <Route path="statistics" element={<StatisticsPage />} />
                 <Route path="transcription" element={<TranscriptionPage />} />
                 <Route path="validation" element={<ValidationPage />} />
                 <Route path="leaderboard" element={<LeaderboardPage />} />

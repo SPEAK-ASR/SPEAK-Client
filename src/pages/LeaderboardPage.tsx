@@ -7,7 +7,7 @@ import {
   ButtonGroup,
   Card,
   CardContent,
-  CircularProgress,
+  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import {
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { transcriptionServiceApi, type AdminLeaderboardEntry, type LeaderboardRange } from '../lib/transcriptionServiceApi';
-import { useAdmin } from '../context/AdminContext';
+import { useAdmin } from '../context/useAdmin';
 
 interface LeaderboardState {
   leaders: AdminLeaderboardEntry[];
@@ -118,9 +118,58 @@ export function LeaderboardPage() {
         </Box>
 
         {loading && (
-          <Box display="flex" justifyContent="center" py={8}>
-            <CircularProgress size={48} />
-          </Box>
+          <Stack spacing={4}>
+            {/* Skeleton for Top 3 Podium */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 3, flexWrap: 'wrap' }}>
+              {[2, 1, 3].map((rank) => (
+                <Card 
+                  key={rank}
+                  sx={{ 
+                    width: rank === 1 ? 260 : 240, 
+                    textAlign: 'center',
+                    transform: rank === 1 ? 'none' : 'translateY(20px)',
+                  }}
+                >
+                  <CardContent sx={{ py: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                      <Skeleton variant="circular" width={rank === 1 ? 120 : 100} height={rank === 1 ? 120 : 100} />
+                    </Box>
+                    <Skeleton variant="text" width="60%" height={32} sx={{ mx: 'auto', mb: 1 }} />
+                    <Skeleton variant="rounded" width="80%" height={48} sx={{ mx: 'auto' }} />
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+            
+            {/* Skeleton for Table */}
+            <Card variant="outlined">
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell width={80}><Skeleton variant="text" width={40} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell align="right"><Skeleton variant="text" width={80} /></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {[1, 2, 3, 4].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton variant="text" width={30} /></TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Skeleton variant="circular" width={40} height={40} />
+                            <Skeleton variant="text" width={100} />
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right"><Skeleton variant="text" width={60} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+          </Stack>
         )}
 
         {error && <Alert severity="error">{error}</Alert>}

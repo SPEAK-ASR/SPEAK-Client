@@ -1,16 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import chirathImg from '../assets/profiles/chirath.png';
 import rusiraImg from '../assets/profiles/rusira.png';
 import kokilaImg from '../assets/profiles/kokila.png';
 import sahanImg from '../assets/profiles/sahan.png';
-
-export type AdminName = 'chirath' | 'rusira' | 'kokila' | 'sahan';
-
-export interface AdminProfile {
-  id: AdminName;
-  displayName: string;
-  imagePath: string;
-}
+import { AdminContext, type AdminName, type AdminProfile, type AdminContextValue } from './context';
 
 const ADMIN_STORAGE_KEY = 'adminName';
 
@@ -20,19 +13,6 @@ const PROFILES: AdminProfile[] = [
   { id: 'kokila', displayName: 'Kokila', imagePath: kokilaImg },
   { id: 'sahan', displayName: 'Sahan', imagePath: sahanImg },
 ];
-
-interface AdminContextValue {
-  admin: AdminName | null;
-  profiles: AdminProfile[];
-  isAdmin: boolean;
-  isSelectorOpen: boolean;
-  openSelector: () => void;
-  closeSelector: () => void;
-  selectAdmin: (admin: AdminName) => void;
-  clearAdmin: () => void;
-}
-
-const AdminContext = createContext<AdminContextValue | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminName | null>(null);
@@ -92,18 +72,4 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       {children}
     </AdminContext.Provider>
   );
-}
-
-export function useAdmin() {
-  const ctx = useContext(AdminContext);
-  if (!ctx) {
-    throw new Error('useAdmin must be used within an AdminProvider');
-  }
-  return ctx;
-}
-
-export function getAdminDisplayName(id: AdminName | null | undefined) {
-  if (!id) return '';
-  const profile = PROFILES.find(p => p.id === id);
-  return profile?.displayName ?? id;
 }

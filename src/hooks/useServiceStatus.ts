@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 export interface ServiceStatus {
@@ -45,7 +45,7 @@ export const useServiceStatus = () => {
         lastChecked: new Date(),
         responseTime,
       };
-    } catch (error) {
+    } catch {
       return {
         ...service,
         isOnline: false,
@@ -55,17 +55,17 @@ export const useServiceStatus = () => {
     }
   };
 
-  const checkAllServices = async () => {
+  const checkAllServices = useCallback(async () => {
     const updatedServices = await Promise.all(
       services.map(service => checkService(service))
     );
     setServices(updatedServices);
-  };
+  }, [services]);
 
   useEffect(() => {
     // Check immediately on mount
     checkAllServices();
-  }, []);
+  }, [checkAllServices]);
 
   return {
     services,

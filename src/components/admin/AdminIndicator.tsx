@@ -1,5 +1,6 @@
 import { Box, Button, Chip } from '@mui/material';
-import { getAdminDisplayName, useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../context/useAdmin';
+import { getAdminDisplayName } from '../../context/adminUtils';
 
 export function AdminIndicator() {
   const { admin, isAdmin, clearAdmin, openSelector } = useAdmin();
