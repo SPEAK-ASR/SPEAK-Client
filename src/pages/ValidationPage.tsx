@@ -1,87 +1,55 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Stack, Typography } from '@mui/material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
-  Snackbar,
-  Stack,
-  Typography,
-} from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { AudioPlayer } from '../components/audio/AudioPlayer';
-import { useSinhalaIme } from '../hooks/useSinhalaIme';
+  TranscriptionEditor,
+  AudioCard,
+  ReferenceCard,
+  EmptyQueueCard,
+  ActionButtons,
+  UnsuitableDialog,
+  NotificationSnackbar,
+} from '../components/transcription';
+import { useSnackbar } from '../hooks/useSnackbar';
+import { DEFAULT_METADATA, type TranscriptionMetadata } from '../types/common';
 import {
   transcriptionServiceApi,
   type SpeakerGender,
   type ValidationQueueItem,
+  type ValidationSubmissionPayload,
 } from '../lib/transcriptionServiceApi';
-import '../styles/transcription.css';
-
-interface SnackbarState {
-  message: string;
-  severity: 'success' | 'error' | 'info';
-}
-
-const SPEAKER_OPTIONS: SpeakerGender[] = ['male', 'female', 'cannot_recognized'];
-
-const DEFAULT_METADATA = {
-  speakerGender: '' as '' | SpeakerGender,
-  hasNoise: false,
-  isCodeMixed: false,
-  isOverlap: false,
-};
 
 export function ValidationPage() {
+  // Data state
   const [queueItem, setQueueItem] = useState<ValidationQueueItem | null>(null);
-  const [metadata, setMetadata] = useState(DEFAULT_METADATA);
+  const [metadata, setMetadata] = useState<TranscriptionMetadata>(DEFAULT_METADATA);
+  
+  // UI state
   const [loadingItem, setLoadingItem] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [snackbar, setSnackbar] = useState<SnackbarState | null>(null);
   const [unsuitableDialog, setUnsuitableDialog] = useState(false);
+  
+  // Refs
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const toggleRef = useRef<HTMLInputElement | null>(null);
-  const chipRef = useRef<HTMLButtonElement | null>(null);
-  const imeDomId = useMemo(() => `ime-${Math.random().toString(36).slice(2, 8)}`, []);
-  const textareaId = `${imeDomId}-textarea`;
-  const toggleId = `${imeDomId}-toggle`;
-  const chipId = `${imeDomId}-chip`;
+  
+  // Hooks
+  const { snackbar, showSuccess, showError, showInfo, closeSnackbar } = useSnackbar();
 
-  useSinhalaIme({ textareaRef, toggleRef, chipRef });
-
+  // Load initial item
   useEffect(() => {
     let isMounted = true;
-    
     async function initialize() {
       if (isMounted) {
         await loadNextItem();
       }
     }
-    
     initialize();
-    
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Populate form when queue item changes
   useEffect(() => {
     if (!queueItem || !textareaRef.current) return;
     textareaRef.current.value = queueItem.transcription.transcription;
@@ -93,7 +61,7 @@ export function ValidationPage() {
     });
   }, [queueItem]);
 
-  async function loadNextItem() {
+  const loadNextItem = useCallback(async () => {
     setLoadingItem(true);
     setSubmitting(false);
     setMetadata(DEFAULT_METADATA);
@@ -103,24 +71,28 @@ export function ValidationPage() {
     try {
       const payload = await transcriptionServiceApi.getNextValidationItem();
       setQueueItem(payload);
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } };
+      if (err?.response?.status === 404) {
         setQueueItem(null);
-        setSnackbar({ message: 'No pending transcriptions. Great job!', severity: 'info' });
+        showInfo('No pending transcriptions. Great job!');
       } else {
         console.error(error);
-        setSnackbar({ message: 'Failed to load next transcription.', severity: 'error' });
+        showError('Failed to load next transcription.');
       }
     } finally {
       setLoadingItem(false);
     }
-  }
+  }, [showInfo, showError]);
 
-  function updateMetadata(key: keyof typeof metadata, value: boolean | string) {
-    setMetadata(prev => ({ ...prev, [key]: value }));
-  }
+  const updateMetadata = useCallback(
+    (key: keyof TranscriptionMetadata, value: boolean | string) => {
+      setMetadata((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
 
-  function cleanupText() {
+  const cleanupText = useCallback(() => {
     if (!textareaRef.current) return;
     const cleaned = textareaRef.current.value
       .replace(/[ \t]+/g, ' ')
@@ -128,54 +100,63 @@ export function ValidationPage() {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
     textareaRef.current.value = cleaned;
-    setSnackbar({ message: 'Text cleaned up successfully.', severity: 'info' });
-  }
+    showInfo('Text cleaned up successfully.');
+  }, [showInfo]);
 
-  function validate(): string | null {
+  const validate = useCallback((): string | null => {
     if (!queueItem) return 'No transcription loaded.';
     if (!metadata.speakerGender) return 'Please select speaker gender.';
     const value = textareaRef.current?.value ?? '';
     if (!value.trim()) return 'Transcription cannot be empty.';
     if (value.trim().length < 3) return 'Transcription looks too short. Please double-check.';
     return null;
-  }
+  }, [queueItem, metadata.speakerGender]);
 
-  async function submitValidation(payload: any, successMessage: string) {
-    try {
-      setSubmitting(true);
-      await transcriptionServiceApi.submitValidation(queueItem!.transcription.trans_id, payload);
-      setSnackbar({ message: successMessage, severity: 'success' });
-      await loadNextItem();
-    } catch (error) {
-      console.error(error);
-      setSnackbar({ message: 'Failed to validate transcription.', severity: 'error' });
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const submitValidation = useCallback(
+    async (payload: ValidationSubmissionPayload, successMessage: string) => {
+      try {
+        setSubmitting(true);
+        await transcriptionServiceApi.submitValidation(
+          queueItem!.transcription.trans_id,
+          payload
+        );
+        showSuccess(successMessage);
+        await loadNextItem();
+      } catch (error) {
+        console.error(error);
+        showError('Failed to validate transcription.');
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [queueItem, loadNextItem, showSuccess, showError]
+  );
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setSnackbar({ message: validationError, severity: 'error' });
-      return;
-    }
-    if (!queueItem) return;
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      const validationError = validate();
+      if (validationError) {
+        showError(validationError);
+        return;
+      }
+      if (!queueItem) return;
 
-    const payload = {
-      transcription: (textareaRef.current?.value ?? '').trim(),
-      speaker_gender: metadata.speakerGender as SpeakerGender,
-      has_noise: metadata.hasNoise,
-      is_code_mixed: metadata.isCodeMixed,
-      is_speaker_overlappings_exist: metadata.isOverlap,
-      is_audio_suitable: true,
-    };
+      const payload = {
+        transcription: (textareaRef.current?.value ?? '').trim(),
+        speaker_gender: metadata.speakerGender as SpeakerGender,
+        has_noise: metadata.hasNoise,
+        is_code_mixed: metadata.isCodeMixed,
+        is_speaker_overlappings_exist: metadata.isOverlap,
+        is_audio_suitable: true,
+      };
 
-    await submitValidation(payload, 'Transcription validated successfully. Loading next item...');
-  }
+      await submitValidation(payload, 'Transcription validated successfully. Loading next item...');
+    },
+    [queueItem, metadata, validate, submitValidation, showError]
+  );
 
-  async function handleUnsuitableConfirm() {
+  const handleUnsuitableConfirm = useCallback(async () => {
     if (!queueItem) return;
     setUnsuitableDialog(false);
     if (textareaRef.current) {
@@ -190,12 +171,22 @@ export function ValidationPage() {
       is_audio_suitable: false,
     };
     await submitValidation(payload, 'Audio marked as unsuitable. Loading next item...');
-  }
+  }, [queueItem, submitValidation]);
 
-  const referenceText = useMemo(() => queueItem?.audio.google_transcription?.trim(), [queueItem]);
+  const handleCopyReference = useCallback(() => {
+    if (!textareaRef.current || !queueItem?.audio.google_transcription) return;
+    textareaRef.current.value = queueItem.audio.google_transcription.trim();
+    showInfo('Reference copied to editor. Please review before submitting.');
+  }, [queueItem, showInfo]);
+
+  const referenceText = useMemo(
+    () => queueItem?.audio.google_transcription?.trim(),
+    [queueItem]
+  );
 
   return (
     <Box component="section">
+      {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" fontWeight={700} gutterBottom>
           Validation
@@ -205,18 +196,9 @@ export function ValidationPage() {
         </Typography>
       </Box>
 
+      {/* Empty state */}
       {!queueItem && !loadingItem ? (
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="h6" gutterBottom>No submissions waiting 🎉</Typography>
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
-              All pending transcriptions have been reviewed.
-            </Typography>
-            <Button onClick={loadNextItem} variant="outlined">
-              Refresh queue
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyQueueCard onRefresh={loadNextItem} />
       ) : (
         <Box component="form" onSubmit={handleSubmit}>
           <Box
@@ -227,183 +209,66 @@ export function ValidationPage() {
               alignItems: 'flex-start',
             }}
           >
+            {/* Left Column */}
             <Stack spacing={3}>
-            <Card variant="outlined">
-              <CardHeader
-                title={queueItem ? queueItem.audio.audio_filename : 'Fetching transcription...'}
-                subheader={queueItem ? `Created ${new Date(queueItem.transcription.created_at ?? '').toLocaleString()}` : undefined}
-                action={
-                  <Button startIcon={<RefreshIcon />} onClick={loadNextItem} disabled={loadingItem || submitting}>
-                    Skip item
-                  </Button>
+              {/* Audio Player */}
+              <AudioCard
+                title={queueItem?.audio.audio_filename ?? 'Fetching transcription...'}
+                subtitle={
+                  queueItem
+                    ? `Created ${new Date(queueItem.transcription.created_at ?? '').toLocaleString()}`
+                    : undefined
                 }
+                audioUrl={queueItem?.audio.gcs_signed_url}
+                loading={loadingItem}
+                onSkip={loadNextItem}
+                skipLabel="Skip item"
+                skipDisabled={submitting}
               />
-              <CardContent>
-                <AudioPlayer src={queueItem?.audio.gcs_signed_url} disabled={!queueItem || loadingItem} />
-              </CardContent>
-            </Card>
 
-            {referenceText && (
-              <Card variant="outlined">
-                <CardHeader title="Reference transcription" />
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Google transcription for reference only
-                  </Typography>
-                  <Typography sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>{referenceText}</Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<ContentCopyIcon />}
-                    onClick={() => {
-                      if (!textareaRef.current) return;
-                      textareaRef.current.value = referenceText;
-                      setSnackbar({ message: 'Reference copied to editor. Please review before submitting.', severity: 'info' });
-                    }}
-                  >
-                    Copy into editor
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </Stack>
-
-          <Card variant="outlined">
-            <CardContent>
-              <Box className="ime-toggle-container">
-                <Typography variant="body2" color="text.secondary" className="ime-toggle-text" component="p">
-                  No Sinhala keyboard? Enable the built-in Sinhala phonetic keyboard below. Read the{' '}
-                  <a href="https://facts.helakuru.lk/sinhala-typing/phonetic" target="_blank" rel="noreferrer" style={{ color: '#6464f9ff', textDecoration: 'underline' }}>
-                    typing guide
-                  </a>
-                  .
-                </Typography>
-                <label className="toggle-switch">
-                  <input type="checkbox" id={toggleId} ref={toggleRef} className="toggle-input" defaultChecked />
-                  <span className="toggle-slider">
-                    <span className="toggle-text off">EN</span>
-                    <span className="toggle-text on">සි</span>
-                  </span>
-                </label>
-              </Box>
-              <div className="ime-container">
-                <textarea
-                  id={textareaId}
-                  ref={textareaRef}
-                  placeholder="Review and edit the transcription..."
-                  rows={5}
-                  style={{
-                    width: '100%',
-                    resize: 'vertical',
-                    padding: '12px',
-                    borderRadius: 8,
-                    border: '1px solid #cfd8dc',
-                    fontSize: '0.95rem',
-                    fontFamily: 'inherit',
-                  }}
+              {/* Reference */}
+              {referenceText && (
+                <ReferenceCard
+                  text={referenceText}
+                  description="Google transcription for reference only"
+                  onCopy={handleCopyReference}
                 />
-                <button type="button" id={chipId} ref={chipRef} className="ime-chip">
-                  සි | en
-                </button>
-              </div>
+              )}
+            </Stack>
 
-              <Box sx={{ mt: 1, mb: 2 }}>
-                <Button variant="text" size="small" startIcon={<CleaningServicesIcon />} onClick={cleanupText}>
-                  Clean up text
-                </Button>
-              </Box>
+            {/* Right Column - Editor */}
+            <TranscriptionEditor
+              textareaRef={textareaRef}
+              metadata={metadata}
+              onMetadataChange={updateMetadata}
+              placeholder="Review and edit the transcription..."
+              showCleanupButton
+              onCleanup={cleanupText}
+              disabled={loadingItem || submitting}
+            />
+          </Box>
 
-              <Stack spacing={1.5}>
-                <FormControl fullWidth required size="small">
-                  <InputLabel id="speaker-select">Speaker gender</InputLabel>
-                  <Select
-                    labelId="speaker-select"
-                    value={metadata.speakerGender}
-                    label="Speaker gender"
-                    size="small"
-                    onChange={event => updateMetadata('speakerGender', event.target.value)}
-                  >
-                    <MenuItem value="">
-                      <em>Select gender...</em>
-                    </MenuItem>
-                    {SPEAKER_OPTIONS.map(option => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={metadata.hasNoise} onChange={event => updateMetadata('hasNoise', event.target.checked)} />}
-                  label="Audio contains background noise"
-                  sx={{ '.MuiTypography-root': { fontSize: '0.9rem' } }}
-                />
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={metadata.isCodeMixed} onChange={event => updateMetadata('isCodeMixed', event.target.checked)} />}
-                  label="Audio contains code-mixed content"
-                  sx={{ '.MuiTypography-root': { fontSize: '0.9rem' } }}
-                />
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={metadata.isOverlap} onChange={event => updateMetadata('isOverlap', event.target.checked)} />}
-                  label="Multiple speakers overlapping"
-                  sx={{ '.MuiTypography-root': { fontSize: '0.9rem' } }}
-                />
-              </Stack>
-            </CardContent>
-          </Card>
+          {/* Action Buttons */}
+          <ActionButtons
+            submitting={submitting}
+            loading={loadingItem}
+            hasData={!!queueItem}
+            submitLabel="Submit validation"
+            skipLabel="Skip item"
+            onUnsuitableClick={() => setUnsuitableDialog(true)}
+            onSkip={loadNextItem}
+          />
         </Box>
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setUnsuitableDialog(true)}
-            disabled={submitting || loadingItem || !queueItem}
-            sx={{
-              minWidth: 200,
-              borderColor: 'error.main',
-              color: 'error.main',
-              backgroundColor: 'transparent',
-              '&:hover': {
-                borderColor: 'error.dark',
-                backgroundColor: 'rgba(211, 47, 47, 0.04)',
-              },
-            }}
-          >
-            This audio is not suitable for transcription
-          </Button>
-          <Button type="submit" variant="contained" endIcon={<SendIcon />} disabled={submitting || loadingItem || !queueItem} sx={{ minWidth: 200 }}>
-            Submit validation
-          </Button>
-          <Button variant="outlined" onClick={loadNextItem} disabled={loadingItem || submitting} sx={{ minWidth: 200 }}>
-            Skip item
-          </Button>
-        </Stack>
-      </Box>
       )}
 
-      <Dialog open={unsuitableDialog} onClose={() => setUnsuitableDialog(false)}>
-        <DialogTitle>Confirm unsuitable audio</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Mark this audio as unsuitable only if it cannot be transcribed (wrong language, corrupted, no speech, etc.).
-            This will submit the record immediately without transcription.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUnsuitableDialog(false)}>Cancel</Button>
-          <Button color="error" startIcon={<WarningAmberIcon />} onClick={handleUnsuitableConfirm}>
-            Yes, mark unsuitable
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Dialogs & Notifications */}
+      <UnsuitableDialog
+        open={unsuitableDialog}
+        onClose={() => setUnsuitableDialog(false)}
+        onConfirm={handleUnsuitableConfirm}
+      />
 
-      {snackbar && (
-        <Snackbar open autoHideDuration={4000} onClose={() => setSnackbar(null)}>
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} variant="filled">
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      )}
+      <NotificationSnackbar snackbar={snackbar} onClose={closeSnackbar} />
     </Box>
   );
 }

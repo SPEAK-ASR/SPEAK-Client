@@ -29,9 +29,9 @@ export function useChannelCards(): UseChannelCardsResult {
             // Hide any channels that are already soft-deleted
             const visible = data.filter(ch => !ch.isDeleted);
             setChannels(visible);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            setError(e.message ?? 'Unknown error');
+            setError(e instanceof Error ? e.message : 'Unknown error');
         } finally {
             setLoading(false);
         }

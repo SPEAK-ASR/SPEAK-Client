@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import CloseIcon from '@mui/icons-material/Close';
-import { useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../context/useAdmin';
 import { transcriptionServiceApi, type AdminLeaderboardEntry, type LeaderboardRange } from '../../lib/transcriptionServiceApi';
 
 const RANGE_LABELS: Record<LeaderboardRange, string> = {

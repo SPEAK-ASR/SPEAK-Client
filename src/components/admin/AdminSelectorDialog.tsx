@@ -1,11 +1,12 @@
 import { Avatar, Box, ButtonBase, Modal, Typography } from '@mui/material';
-import { useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../context/useAdmin';
+import type { AdminName } from '../../context/context';
 
 export function AdminSelectorDialog() {
   const { profiles, isSelectorOpen, closeSelector, selectAdmin } = useAdmin();
 
-  const handleSelect = (adminId: string) => {
-    selectAdmin(adminId as any);
+  const handleSelect = (adminId: AdminName) => {
+    selectAdmin(adminId);
   };
 
   return (

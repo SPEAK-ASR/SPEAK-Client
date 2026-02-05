@@ -28,7 +28,7 @@ import YouTubeIcon from '@mui/icons-material/YouTube';
 import QueueIcon from '@mui/icons-material/Queue';
 
 import { Footer } from '../Footer';
-import { useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../context/useAdmin';
 import { AdminSelectorDialog } from '../admin/AdminSelectorDialog';
 import { ServiceStatusIndicator } from './ServiceStatusIndicator';
 import { useServiceStatus } from '../../hooks/useServiceStatus';

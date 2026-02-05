@@ -6,26 +6,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 12%;
+    /* 
+     * Unified color system - matches MUI theme in src/theme/theme.ts
+     * Primary blue: #4F8EFF (HSL: 217 100% 65%)
+     */
+    --background: 0 0% 8%;        /* #141414 */
+    --foreground: 0 0% 98%;       /* #FAFAFA */
+    --card: 0 0% 12%;             /* #1F1F1F */
+    --card-foreground: 0 0% 98%;  /* #FAFAFA */
+    --popover: 0 0% 12%;          /* #1F1F1F */
     --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 16%;
+    --primary: 217 100% 65%;      /* #4F8EFF - matches MUI primary */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 16%;        /* #2A2A2A */
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 217 91% 60%;
+    --muted: 0 0% 16%;            /* #2A2A2A */
+    --muted-foreground: 0 0% 60%; /* #999999 */
+    --accent: 217 100% 65%;       /* #4F8EFF */
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 63% 31%;
+    --destructive: 0 72% 65%;     /* #FF5252 - matches MUI error */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 20%;
-    --input: 0 0% 16%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 20%;           /* #333333 */
+    --input: 0 0% 16%;            /* #2A2A2A */
+    --ring: 217 100% 65%;         /* #4F8EFF */
     --radius: 0.5rem;
+    
+    /* Semantic colors */
+    --success: 122 39% 56%;       /* #66BB6A - matches MUI success */
+    --warning: 36 100% 58%;       /* #FFA726 - matches MUI warning */
+    --info: 199 91% 56%;          /* #29B6F6 - matches MUI info */
   }
 }
 
