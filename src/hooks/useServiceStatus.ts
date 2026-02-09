@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 export interface ServiceStatus {
@@ -13,23 +13,31 @@ export interface ServiceStatus {
 const AUDIO_SERVICE_URL = import.meta.env.VITE_AUDIO_BASE_URL || 'http://localhost:8000';
 const TRANSCRIPTION_SERVICE_URL = import.meta.env.VITE_TRANSCRIPTION_BASE_URL || 'http://localhost:5000';
 
+const initialServices: ServiceStatus[] = [
+  {
+    name: 'Audio Scraping',
+    url: AUDIO_SERVICE_URL,
+    port: 8000,
+    isOnline: false,
+    lastChecked: null,
+  },
+  {
+    name: 'Transcription',
+    url: TRANSCRIPTION_SERVICE_URL,
+    port: 5000,
+    isOnline: false,
+    lastChecked: null,
+  },
+];
+
 export const useServiceStatus = () => {
-  const [services, setServices] = useState<ServiceStatus[]>([
-    {
-      name: 'Audio Scraping',
-      url: AUDIO_SERVICE_URL,
-      port: 8000,
-      isOnline: false,
-      lastChecked: null,
-    },
-    {
-      name: 'Transcription',
-      url: TRANSCRIPTION_SERVICE_URL,
-      port: 5000,
-      isOnline: false,
-      lastChecked: null,
-    },
-  ]);
+  const [services, setServices] = useState<ServiceStatus[]>(initialServices);
+  const servicesRef = useRef(services);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    servicesRef.current = services;
+  }, [services]);
 
   const checkService = async (service: ServiceStatus): Promise<ServiceStatus> => {
     const startTime = Date.now();
@@ -57,15 +65,16 @@ export const useServiceStatus = () => {
 
   const checkAllServices = useCallback(async () => {
     const updatedServices = await Promise.all(
-      services.map(service => checkService(service))
+      servicesRef.current.map(service => checkService(service))
     );
     setServices(updatedServices);
-  }, [services]);
+  }, []);
 
   useEffect(() => {
-    // Check immediately on mount
+    // Check only once on initial mount
     checkAllServices();
-  }, [checkAllServices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     services,
