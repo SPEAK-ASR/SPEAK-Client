@@ -6,7 +6,6 @@ import {
     CardContent,
     Chip,
     Divider,
-    LinearProgress,
     Stack,
     Typography,
 } from "@mui/material";
