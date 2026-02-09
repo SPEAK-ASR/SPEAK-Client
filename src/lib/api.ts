@@ -1,12 +1,15 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_AUDIO_SCRAPING_API_URL || 'http://localhost:8000/api/v1';
-const AUDIO_BASE_URL = import.meta.env.VITE_AUDIO_SCRAPING_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL =
+    import.meta.env.VITE_AUDIO_SCRAPING_API_URL ||
+    "http://localhost:8000/api/v1";
+const AUDIO_BASE_URL =
+    import.meta.env.VITE_AUDIO_SCRAPING_BASE_URL || "http://localhost:8000";
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
     headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
     },
 });
 
@@ -44,7 +47,7 @@ export interface AudioSplitResponse {
 
 export interface TranscribedClip {
     clip_name: string;
-    transcription: string | null;  // Allow null for failed transcriptions
+    transcription: string | null; // Allow null for failed transcriptions
 }
 
 export interface TranscriptionResponse {
@@ -93,30 +96,36 @@ export const audioApi = {
     splitAudio: async (
         youtubeUrl: string,
         domain: string,
-        vadAggressiveness: number = 3,
+        vadThreshold: number = 0.5,
         startPadding: number = 1.0,
-        endPadding: number = 0.5
+        endPadding: number = 0.5,
     ): Promise<AudioSplitResponse> => {
-        const response = await api.post('/split-audio', {
+        const response = await api.post("/split-audio", {
             youtube_url: youtubeUrl,
             domain: domain,
-            vad_aggressiveness: vadAggressiveness,
+            vad_threshold: vadThreshold,
             start_padding: startPadding,
             end_padding: endPadding,
         });
         return response.data;
     },
 
-    transcribeClips: async (videoId: string, clipNames?: string[]): Promise<TranscriptionResponse> => {
-        const response = await api.post('/transcribe-clips', {
+    transcribeClips: async (
+        videoId: string,
+        clipNames?: string[],
+    ): Promise<TranscriptionResponse> => {
+        const response = await api.post("/transcribe-clips", {
             video_id: videoId,
             clip_names: clipNames,
         });
         return response.data;
     },
 
-    saveToCloud: async (videoId: string, clipNames?: string[]): Promise<CloudStorageResponse> => {
-        const response = await api.post('/save-clips', {
+    saveToCloud: async (
+        videoId: string,
+        clipNames?: string[],
+    ): Promise<CloudStorageResponse> => {
+        const response = await api.post("/save-clips", {
             video_id: videoId,
             clip_names: clipNames,
             upload_to_cloud_bucket: true,
@@ -125,12 +134,27 @@ export const audioApi = {
         return response.data;
     },
 
-    deleteAudioFiles: async (videoId: string): Promise<{ success: boolean; message: string; deleted_files: string[]; total_deleted: number }> => {
+    deleteAudioFiles: async (
+        videoId: string,
+    ): Promise<{
+        success: boolean;
+        message: string;
+        deleted_files: string[];
+        total_deleted: number;
+    }> => {
         const response = await api.delete(`/delete-audio/${videoId}`);
         return response.data;
     },
 
-    cleanNullTranscriptions: async (videoId: string): Promise<{ success: boolean; message: string; deleted_files: string[]; total_deleted: number; remaining_clips: number }> => {
+    cleanNullTranscriptions: async (
+        videoId: string,
+    ): Promise<{
+        success: boolean;
+        message: string;
+        deleted_files: string[];
+        total_deleted: number;
+        remaining_clips: number;
+    }> => {
         const response = await api.post(`/clean-transcriptions/${videoId}`);
         return response.data;
     },
@@ -139,8 +163,11 @@ export const audioApi = {
         return `${AUDIO_BASE_URL}/output/${videoId}/${clipName}`;
     },
 
-    getPlaylistVideos: async (playlistUrl: string, limit?: number): Promise<PlaylistResponse> => {
-        const response = await api.post('/playlist-videos', {
+    getPlaylistVideos: async (
+        playlistUrl: string,
+        limit?: number,
+    ): Promise<PlaylistResponse> => {
+        const response = await api.post("/playlist-videos", {
             playlist_url: playlistUrl,
             limit: limit,
         });

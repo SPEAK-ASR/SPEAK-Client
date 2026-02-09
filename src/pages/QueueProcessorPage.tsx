@@ -21,7 +21,11 @@ import {
 } from "../components/queue";
 import { audioApi } from "../lib/api";
 import type { PlaylistVideo } from "../lib/api";
-import { DEFAULT_VIDEO_SETTINGS, STAGE_PROGRESS, CONCURRENT_VIDEO_LIMIT } from "../types/queue";
+import {
+    DEFAULT_VIDEO_SETTINGS,
+    STAGE_PROGRESS,
+    CONCURRENT_VIDEO_LIMIT,
+} from "../types/queue";
 import type { QueueVideo, VideoSettings } from "../types/queue";
 
 // Generate unique ID
@@ -44,7 +48,7 @@ const extractVideoId = (url: string): string | null => {
 export function QueueProcessorPage() {
     const [queue, setQueue] = useState<QueueVideo[]>([]);
     const [defaultSettings, setDefaultSettings] = useState<VideoSettings>(
-        DEFAULT_VIDEO_SETTINGS
+        DEFAULT_VIDEO_SETTINGS,
     );
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
@@ -61,7 +65,7 @@ export function QueueProcessorPage() {
             else acc.pending++;
             return acc;
         },
-        { pending: 0, processing: 0, complete: 0, error: 0 }
+        { pending: 0, processing: 0, complete: 0, error: 0 },
     );
 
     // Add single URL to queue
@@ -78,7 +82,7 @@ export function QueueProcessorPage() {
             };
             setQueue((prev) => [...prev, newVideo]);
         },
-        [defaultSettings]
+        [defaultSettings],
     );
 
     // Load videos from playlist
@@ -86,7 +90,10 @@ export function QueueProcessorPage() {
         async (playlistUrl: string, limit?: number) => {
             setIsLoadingPlaylist(true);
             try {
-                const response = await audioApi.getPlaylistVideos(playlistUrl, limit);
+                const response = await audioApi.getPlaylistVideos(
+                    playlistUrl,
+                    limit,
+                );
                 if (response.success && response.videos.length > 0) {
                     const newVideos: QueueVideo[] = response.videos.map(
                         (video: PlaylistVideo) => ({
@@ -99,7 +106,7 @@ export function QueueProcessorPage() {
                             status: "pending" as const,
                             progress: 0,
                             settings: { ...defaultSettings },
-                        })
+                        }),
                     );
                     setQueue((prev) => [...prev, ...newVideos]);
                 }
@@ -107,7 +114,37 @@ export function QueueProcessorPage() {
                 setIsLoadingPlaylist(false);
             }
         },
-        [defaultSettings]
+        [defaultSettings],
+    );
+
+    // Load videos from JSON file
+    const handleLoadJson = useCallback(
+        (videos: Array<{ video_link: string; domain: string }>) => {
+            // Get existing video URLs to avoid duplicates
+            const existingUrls = new Set(queue.map((v) => v.url));
+
+            const newVideos: QueueVideo[] = videos
+                .filter((v) => !existingUrls.has(v.video_link))
+                .map((video) => {
+                    const videoId = extractVideoId(video.video_link);
+                    return {
+                        id: generateId(),
+                        url: video.video_link,
+                        title: videoId ? `Video ${videoId}` : "Unknown Video",
+                        status: "pending" as const,
+                        progress: 0,
+                        settings: {
+                            ...defaultSettings,
+                            domain: video.domain,
+                        },
+                    };
+                });
+
+            if (newVideos.length > 0) {
+                setQueue((prev) => [...prev, ...newVideos]);
+            }
+        },
+        [defaultSettings, queue],
     );
 
     // Remove video from queue
@@ -119,20 +156,20 @@ export function QueueProcessorPage() {
     const handleUpdateSettings = useCallback(
         (id: string, settings: VideoSettings) => {
             setQueue((prev) =>
-                prev.map((v) => (v.id === id ? { ...v, settings } : v))
+                prev.map((v) => (v.id === id ? { ...v, settings } : v)),
             );
         },
-        []
+        [],
     );
 
     // Update video state helper
     const updateVideo = useCallback(
         (id: string, updates: Partial<QueueVideo>) => {
             setQueue((prev) =>
-                prev.map((v) => (v.id === id ? { ...v, ...updates } : v))
+                prev.map((v) => (v.id === id ? { ...v, ...updates } : v)),
             );
         },
-        []
+        [],
     );
 
     // Process a single video through all stages sequentially
@@ -150,9 +187,9 @@ export function QueueProcessorPage() {
                 const splitResult = await audioApi.splitAudio(
                     url,
                     settings.domain,
-                    settings.vadAggressiveness,
+                    settings.vadThreshold,
                     settings.startPadding,
-                    settings.endPadding
+                    settings.endPadding,
                 );
 
                 if (!splitResult.success || abortRef.current) {
@@ -174,7 +211,8 @@ export function QueueProcessorPage() {
                 if (abortRef.current) throw new Error("Processing cancelled");
 
                 // Stage 2: Transcribe clips
-                const transcribeResult = await audioApi.transcribeClips(videoId);
+                const transcribeResult =
+                    await audioApi.transcribeClips(videoId);
 
                 if (!transcribeResult.success || abortRef.current) {
                     throw new Error("Failed to transcribe clips");
@@ -187,7 +225,8 @@ export function QueueProcessorPage() {
                         progress: STAGE_PROGRESS.cleaning,
                     });
 
-                    if (abortRef.current) throw new Error("Processing cancelled");
+                    if (abortRef.current)
+                        throw new Error("Processing cancelled");
 
                     await audioApi.cleanNullTranscriptions(videoId);
                 }
@@ -217,11 +256,15 @@ export function QueueProcessorPage() {
             } catch (err) {
                 const errorMessage =
                     err instanceof Error ? err.message : "Unknown error";
-                updateVideo(id, { status: "error", progress: 0, error: errorMessage });
+                updateVideo(id, {
+                    status: "error",
+                    progress: 0,
+                    error: errorMessage,
+                });
                 return false;
             }
         },
-        [updateVideo]
+        [updateVideo],
     );
 
     // Process a single video and remove from active set when done
@@ -234,7 +277,7 @@ export function QueueProcessorPage() {
                 activeVideoIdsRef.current.delete(video.id);
             }
         },
-        [processVideoSequentially]
+        [processVideoSequentially],
     );
 
     // Start processing pending videos up to the concurrency limit
@@ -249,7 +292,8 @@ export function QueueProcessorPage() {
 
         // Find pending videos that aren't already being processed
         const pendingVideos = queue.filter(
-            (v) => v.status === "pending" && !activeVideoIdsRef.current.has(v.id)
+            (v) =>
+                v.status === "pending" && !activeVideoIdsRef.current.has(v.id),
         );
 
         // Start processing videos up to available slots
@@ -266,17 +310,29 @@ export function QueueProcessorPage() {
         setQueue((prev) =>
             prev.map((v) =>
                 v.id === id
-                    ? { ...v, status: "pending" as const, progress: 0, error: undefined }
-                    : v
-            )
+                    ? {
+                          ...v,
+                          status: "pending" as const,
+                          progress: 0,
+                          error: undefined,
+                      }
+                    : v,
+            ),
         );
     }, []);
 
     // Start/stop processing
     const handleStartProcessing = useCallback(() => {
+        // Check if category is selected
+        if (!defaultSettings.domain) {
+            alert(
+                "Please select a video category before starting the process.",
+            );
+            return;
+        }
         abortRef.current = false;
         setIsProcessing(true);
-    }, []);
+    }, [defaultSettings.domain]);
 
     const handleStopProcessing = useCallback(() => {
         abortRef.current = true;
@@ -295,7 +351,7 @@ export function QueueProcessorPage() {
         if (!isProcessing) return;
 
         const allDone = queue.every(
-            (v) => v.status === "complete" || v.status === "error"
+            (v) => v.status === "complete" || v.status === "error",
         );
 
         if (allDone && queue.length > 0) {
@@ -306,11 +362,13 @@ export function QueueProcessorPage() {
     // Calculate overall progress
     const overallProgress =
         queue.length > 0
-            ? Math.round(queue.reduce((acc, v) => acc + v.progress, 0) / queue.length)
+            ? Math.round(
+                  queue.reduce((acc, v) => acc + v.progress, 0) / queue.length,
+              )
             : 0;
 
     const hasVideosToProcess = queue.some(
-        (v) => v.status === "pending" || v.status === "error"
+        (v) => v.status === "pending" || v.status === "error",
     );
 
     return (
@@ -334,7 +392,8 @@ export function QueueProcessorPage() {
                         Queue Processor
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        Process multiple YouTube videos concurrently (up to {CONCURRENT_VIDEO_LIMIT} at a time)
+                        Process multiple YouTube videos concurrently (up to{" "}
+                        {CONCURRENT_VIDEO_LIMIT} at a time)
                     </Typography>
                 </Box>
 
@@ -351,6 +410,7 @@ export function QueueProcessorPage() {
                         <VideoQueueInput
                             onAddUrl={handleAddUrl}
                             onLoadPlaylist={handleLoadPlaylist}
+                            onLoadJson={handleLoadJson}
                             isLoadingPlaylist={isLoadingPlaylist}
                             disabled={isProcessing}
                         />
@@ -379,9 +439,13 @@ export function QueueProcessorPage() {
                             <Button
                                 variant="contained"
                                 color={isProcessing ? "error" : "primary"}
-                                startIcon={isProcessing ? <Stop /> : <PlayArrow />}
+                                startIcon={
+                                    isProcessing ? <Stop /> : <PlayArrow />
+                                }
                                 onClick={
-                                    isProcessing ? handleStopProcessing : handleStartProcessing
+                                    isProcessing
+                                        ? handleStopProcessing
+                                        : handleStartProcessing
                                 }
                                 disabled={!hasVideosToProcess && !isProcessing}
                                 sx={{ minWidth: 140 }}
@@ -392,7 +456,10 @@ export function QueueProcessorPage() {
                             <Box sx={{ flex: 1, minWidth: 200 }}>
                                 {isProcessing && (
                                     <Box>
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                        >
                                             Overall Progress: {overallProgress}%
                                         </Typography>
                                         <LinearProgress
@@ -429,7 +496,9 @@ export function QueueProcessorPage() {
                                 {statusCounts.error > 0 && (
                                     <Chip
                                         size="small"
-                                        icon={<ErrorIcon sx={{ fontSize: 16 }} />}
+                                        icon={
+                                            <ErrorIcon sx={{ fontSize: 16 }} />
+                                        }
                                         label={`${statusCounts.error} failed`}
                                         color="error"
                                         variant="outlined"

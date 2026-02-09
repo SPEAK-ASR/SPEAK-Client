@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
     Box,
     Typography,
@@ -19,7 +19,7 @@ import {
     Collapse,
     Slider,
     Switch,
-} from '@mui/material';
+} from "@mui/material";
 import {
     Delete,
     Refresh,
@@ -33,9 +33,9 @@ import {
     ContentCut,
     Mic,
     CleaningServices,
-} from '@mui/icons-material';
-import { DOMAIN_OPTIONS, STAGE_LABELS } from '../../types/queue';
-import type { QueueVideo, VideoSettings } from '../../types/queue';
+} from "@mui/icons-material";
+import { DOMAIN_OPTIONS, STAGE_LABELS } from "../../types/queue";
+import type { QueueVideo, VideoSettings } from "../../types/queue";
 
 interface VideoQueueTableProps {
     videos: QueueVideo[];
@@ -46,21 +46,21 @@ interface VideoQueueTableProps {
 }
 
 // Get status icon
-const getStatusIcon = (status: QueueVideo['status']) => {
+const getStatusIcon = (status: QueueVideo["status"]) => {
     switch (status) {
-        case 'pending':
+        case "pending":
             return <HourglassEmpty fontSize="small" />;
-        case 'splitting':
+        case "splitting":
             return <ContentCut fontSize="small" />;
-        case 'transcribing':
+        case "transcribing":
             return <Mic fontSize="small" />;
-        case 'cleaning':
+        case "cleaning":
             return <CleaningServices fontSize="small" />;
-        case 'saving':
+        case "saving":
             return <CloudUpload fontSize="small" />;
-        case 'complete':
+        case "complete":
             return <CheckCircle fontSize="small" />;
-        case 'error':
+        case "error":
             return <ErrorIcon fontSize="small" />;
         default:
             return <Sync fontSize="small" />;
@@ -68,39 +68,48 @@ const getStatusIcon = (status: QueueVideo['status']) => {
 };
 
 // Get status color
-const getStatusColor = (status: QueueVideo['status']): 'default' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning' => {
+const getStatusColor = (
+    status: QueueVideo["status"],
+):
+    | "default"
+    | "primary"
+    | "secondary"
+    | "success"
+    | "error"
+    | "info"
+    | "warning" => {
     switch (status) {
-        case 'pending':
-            return 'default';
-        case 'splitting':
-        case 'transcribing':
-        case 'cleaning':
-        case 'saving':
-            return 'primary';
-        case 'complete':
-            return 'success';
-        case 'error':
-            return 'error';
+        case "pending":
+            return "default";
+        case "splitting":
+        case "transcribing":
+        case "cleaning":
+        case "saving":
+            return "primary";
+        case "complete":
+            return "success";
+        case "error":
+            return "error";
         default:
-            return 'default';
+            return "default";
     }
 };
 
 // Get progress gradient based on percentage
 const getProgressGradient = (progress: number) => {
     if (progress === 100) {
-        return 'linear-gradient(90deg, #10b981, #34d399)'; // Green for complete
+        return "linear-gradient(90deg, #10b981, #34d399)"; // Green for complete
     }
     if (progress >= 75) {
-        return 'linear-gradient(90deg, #8b5cf6, #a78bfa)'; // Purple for saving
+        return "linear-gradient(90deg, #8b5cf6, #a78bfa)"; // Purple for saving
     }
     if (progress >= 50) {
-        return 'linear-gradient(90deg, #ec4899, #f472b6)'; // Pink for cleaning
+        return "linear-gradient(90deg, #ec4899, #f472b6)"; // Pink for cleaning
     }
     if (progress >= 25) {
-        return 'linear-gradient(90deg, #6366f1, #818cf8)'; // Indigo for transcribing
+        return "linear-gradient(90deg, #6366f1, #818cf8)"; // Indigo for transcribing
     }
-    return 'linear-gradient(90deg, #3b82f6, #60a5fa)'; // Blue for splitting
+    return "linear-gradient(90deg, #3b82f6, #60a5fa)"; // Blue for splitting
 };
 
 interface VideoRowProps {
@@ -111,42 +120,53 @@ interface VideoRowProps {
     isProcessing: boolean;
 }
 
-function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: VideoRowProps) {
+function VideoRow({
+    video,
+    onRemove,
+    onRetry,
+    onUpdateSettings,
+    isProcessing,
+}: VideoRowProps) {
     const [expanded, setExpanded] = useState(false);
-    const canEdit = video.status === 'pending' && !isProcessing;
-    const canRemove = video.status === 'pending' || video.status === 'error' || video.status === 'complete';
-    const canRetry = video.status === 'error';
+    const canEdit = video.status === "pending" && !isProcessing;
+    const canRemove =
+        video.status === "pending" ||
+        video.status === "error" ||
+        video.status === "complete";
+    const canRetry = video.status === "error";
 
-    const progressWidth = video.status === 'error' ? 0 : video.progress;
+    const progressWidth = video.status === "error" ? 0 : video.progress;
 
     return (
         <>
             <TableRow
                 sx={{
-                    position: 'relative',
-                    '&:hover': {
-                        bgcolor: 'action.hover',
+                    position: "relative",
+                    "&:hover": {
+                        bgcolor: "action.hover",
                     },
                     // Remove default border
-                    '& td': {
-                        borderBottom: 'none',
+                    "& td": {
+                        borderBottom: "none",
                     },
                     // Bottom progress indicator as background so it doesn't affect table layout
-                    backgroundImage: progressWidth > 0 ? getProgressGradient(video.progress) : 'none',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'left bottom',
+                    backgroundImage:
+                        progressWidth > 0
+                            ? getProgressGradient(video.progress)
+                            : "none",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "left bottom",
                     backgroundSize: `${progressWidth}% 3px`,
                 }}
             >
-
                 {/* Thumbnail */}
                 <TableCell sx={{ width: 80, py: 1.5 }}>
                     <Avatar
                         variant="rounded"
                         src={video.thumbnail}
-                        sx={{ width: 64, height: 36, bgcolor: 'grey.800' }}
+                        sx={{ width: 64, height: 36, bgcolor: "grey.800" }}
                     >
-                        {video.title?.[0] || '?'}
+                        {video.title?.[0] || "?"}
                     </Avatar>
                 </TableCell>
 
@@ -157,16 +177,20 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                             variant="body2"
                             sx={{
                                 fontWeight: 500,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
                             }}
                         >
-                            {video.title || 'Loading...'}
+                            {video.title || "Loading..."}
                         </Typography>
                     </Tooltip>
                     {video.error && (
-                        <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+                        <Typography
+                            variant="caption"
+                            color="error"
+                            sx={{ display: "block" }}
+                        >
                             {video.error}
                         </Typography>
                     )}
@@ -178,11 +202,20 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                         <FormControl size="small" fullWidth>
                             <Select
                                 value={video.settings.domain}
-                                onChange={(e) => onUpdateSettings({ ...video.settings, domain: e.target.value })}
-                                sx={{ fontSize: '0.75rem' }}
+                                onChange={(e) =>
+                                    onUpdateSettings({
+                                        ...video.settings,
+                                        domain: e.target.value,
+                                    })
+                                }
+                                sx={{ fontSize: "0.75rem" }}
                             >
                                 {DOMAIN_OPTIONS.map((opt) => (
-                                    <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '0.75rem' }}>
+                                    <MenuItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        sx={{ fontSize: "0.75rem" }}
+                                    >
                                         {opt.label}
                                     </MenuItem>
                                 ))}
@@ -190,7 +223,11 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                         </FormControl>
                     ) : (
                         <Typography variant="caption" color="text.secondary">
-                            {DOMAIN_OPTIONS.find((d) => d.value === video.settings.domain)?.label}
+                            {
+                                DOMAIN_OPTIONS.find(
+                                    (d) => d.value === video.settings.domain,
+                                )?.label
+                            }
                         </Typography>
                     )}
                 </TableCell>
@@ -198,10 +235,10 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                 {/* VAD */}
                 <TableCell align="center" sx={{ width: 60 }}>
                     <Chip
-                        label={`V${video.settings.vadAggressiveness}`}
+                        label={video.settings.vadThreshold.toFixed(2)}
                         size="small"
                         variant="outlined"
-                        sx={{ fontSize: '0.7rem' }}
+                        sx={{ fontSize: "0.7rem" }}
                     />
                 </TableCell>
 
@@ -213,8 +250,8 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                         color={getStatusColor(video.status)}
                         size="small"
                         sx={{
-                            fontSize: '0.7rem',
-                            '& .MuiChip-icon': { fontSize: '0.9rem' },
+                            fontSize: "0.7rem",
+                            "& .MuiChip-icon": { fontSize: "0.9rem" },
                         }}
                     />
                 </TableCell>
@@ -223,7 +260,9 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                 <TableCell align="center" sx={{ width: 80 }}>
                     {video.clipCount !== undefined && (
                         <Typography variant="caption" color="text.secondary">
-                            {video.savedCount !== undefined ? `${video.savedCount}/` : ''}
+                            {video.savedCount !== undefined
+                                ? `${video.savedCount}/`
+                                : ""}
                             {video.clipCount} clips
                         </Typography>
                     )}
@@ -231,24 +270,45 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
 
                 {/* Actions */}
                 <TableCell align="right" sx={{ width: 100 }}>
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            gap: 0.5,
+                            justifyContent: "flex-end",
+                        }}
+                    >
                         {canEdit && (
                             <Tooltip title="More settings">
-                                <IconButton size="small" onClick={() => setExpanded(!expanded)}>
-                                    {expanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setExpanded(!expanded)}
+                                >
+                                    {expanded ? (
+                                        <ExpandLess fontSize="small" />
+                                    ) : (
+                                        <ExpandMore fontSize="small" />
+                                    )}
                                 </IconButton>
                             </Tooltip>
                         )}
                         {canRetry && (
                             <Tooltip title="Retry">
-                                <IconButton size="small" color="primary" onClick={onRetry}>
+                                <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={onRetry}
+                                >
                                     <Refresh fontSize="small" />
                                 </IconButton>
                             </Tooltip>
                         )}
                         {canRemove && (
                             <Tooltip title="Remove">
-                                <IconButton size="small" color="error" onClick={onRemove}>
+                                <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={onRemove}
+                                >
                                     <Delete fontSize="small" />
                                 </IconButton>
                             </Tooltip>
@@ -259,31 +319,67 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
 
             {/* Expanded settings row */}
             <TableRow>
-                <TableCell colSpan={7} sx={{ py: 0, borderBottom: 'none' }}>
-                    <Collapse in={expanded && canEdit} timeout="auto" unmountOnExit>
-                        <Box sx={{ py: 2, px: 1, display: 'flex', gap: 4, alignItems: 'center' }}>
-                            {/* VAD Selection */}
-                            <FormControl size="small" sx={{ minWidth: 120 }}>
-                                <Select
-                                    value={video.settings.vadAggressiveness}
-                                    onChange={(e) => onUpdateSettings({ ...video.settings, vadAggressiveness: Number(e.target.value) })}
-                                    sx={{ fontSize: '0.75rem' }}
+                <TableCell colSpan={7} sx={{ py: 0, borderBottom: "none" }}>
+                    <Collapse
+                        in={expanded && canEdit}
+                        timeout="auto"
+                        unmountOnExit
+                    >
+                        <Box
+                            sx={{
+                                py: 2,
+                                px: 1,
+                                display: "flex",
+                                gap: 4,
+                                alignItems: "center",
+                            }}
+                        >
+                            {/* VAD Threshold Slider */}
+                            <Box sx={{ minWidth: 200 }}>
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ fontSize: "0.7rem" }}
                                 >
-                                    <MenuItem value={0}>VAD: 0</MenuItem>
-                                    <MenuItem value={1}>VAD: 1</MenuItem>
-                                    <MenuItem value={2}>VAD: 2</MenuItem>
-                                    <MenuItem value={3}>VAD: 3</MenuItem>
-                                </Select>
-                            </FormControl>
+                                    VAD Threshold:{" "}
+                                    {video.settings.vadThreshold.toFixed(2)}
+                                </Typography>
+                                <Slider
+                                    value={video.settings.vadThreshold}
+                                    onChange={(_, value) =>
+                                        onUpdateSettings({
+                                            ...video.settings,
+                                            vadThreshold: value as number,
+                                        })
+                                    }
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    size="small"
+                                    marks={[
+                                        { value: 0, label: "0" },
+                                        { value: 0.5, label: "0.5" },
+                                        { value: 1, label: "1" },
+                                    ]}
+                                />
+                            </Box>
 
                             {/* Start Padding */}
                             <Box sx={{ width: 150 }}>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                >
                                     Start: {video.settings.startPadding}s
                                 </Typography>
                                 <Slider
                                     value={video.settings.startPadding}
-                                    onChange={(_, v) => onUpdateSettings({ ...video.settings, startPadding: v as number })}
+                                    onChange={(_, v) =>
+                                        onUpdateSettings({
+                                            ...video.settings,
+                                            startPadding: v as number,
+                                        })
+                                    }
                                     min={0}
                                     max={5}
                                     step={0.1}
@@ -293,12 +389,20 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
 
                             {/* End Padding */}
                             <Box sx={{ width: 150 }}>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                >
                                     End: {video.settings.endPadding}s
                                 </Typography>
                                 <Slider
                                     value={video.settings.endPadding}
-                                    onChange={(_, v) => onUpdateSettings({ ...video.settings, endPadding: v as number })}
+                                    onChange={(_, v) =>
+                                        onUpdateSettings({
+                                            ...video.settings,
+                                            endPadding: v as number,
+                                        })
+                                    }
                                     min={0}
                                     max={5}
                                     step={0.1}
@@ -307,13 +411,31 @@ function VideoRow({ video, onRemove, onRetry, onUpdateSettings, isProcessing }: 
                             </Box>
 
                             {/* Auto cleanup */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                }}
+                            >
                                 <Switch
                                     size="small"
-                                    checked={video.settings.autoCleanNullTranscriptions}
-                                    onChange={(e) => onUpdateSettings({ ...video.settings, autoCleanNullTranscriptions: e.target.checked })}
+                                    checked={
+                                        video.settings
+                                            .autoCleanNullTranscriptions
+                                    }
+                                    onChange={(e) =>
+                                        onUpdateSettings({
+                                            ...video.settings,
+                                            autoCleanNullTranscriptions:
+                                                e.target.checked,
+                                        })
+                                    }
                                 />
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                >
                                     Auto-clean
                                 </Typography>
                             </Box>
@@ -338,11 +460,11 @@ export function VideoQueueTable({
                 elevation={0}
                 sx={{
                     p: 4,
-                    textAlign: 'center',
-                    bgcolor: 'background.paper',
+                    textAlign: "center",
+                    bgcolor: "background.paper",
                     borderRadius: 2,
-                    border: '2px dashed',
-                    borderColor: 'divider',
+                    border: "2px dashed",
+                    borderColor: "divider",
                 }}
             >
                 <Typography color="text.secondary">
@@ -359,25 +481,37 @@ export function VideoQueueTable({
             sx={{
                 borderRadius: 2,
                 maxHeight: 440,
-                overflow: 'auto',
+                overflow: "auto",
 
-                '&::-webkit-scrollbar': {
-                    display: 'none',
+                "&::-webkit-scrollbar": {
+                    display: "none",
                 },
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
             }}
         >
             <Table size="small" stickyHeader>
                 <TableHead>
-                    <TableRow sx={{ bgcolor: 'action.hover' }}>
-                        <TableCell sx={{ fontWeight: 600, width: 80 }}>Video</TableCell>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                        <TableCell sx={{ fontWeight: 600, width: 80 }}>
+                            Video
+                        </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
-                        <TableCell sx={{ fontWeight: 600, textAlign: 'center' }}>VAD</TableCell>
+                        <TableCell
+                            sx={{ fontWeight: 600, textAlign: "center" }}
+                        >
+                            VAD
+                        </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 600, textAlign: 'center' }}>Clips</TableCell>
-                        <TableCell sx={{ fontWeight: 600, textAlign: 'right' }}>Actions</TableCell>
+                        <TableCell
+                            sx={{ fontWeight: 600, textAlign: "center" }}
+                        >
+                            Clips
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600, textAlign: "right" }}>
+                            Actions
+                        </TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -387,7 +521,9 @@ export function VideoQueueTable({
                             video={video}
                             onRemove={() => onRemove(video.id)}
                             onRetry={() => onRetry(video.id)}
-                            onUpdateSettings={(settings) => onUpdateSettings(video.id, settings)}
+                            onUpdateSettings={(settings) =>
+                                onUpdateSettings(video.id, settings)
+                            }
                             isProcessing={isProcessing}
                         />
                     ))}
