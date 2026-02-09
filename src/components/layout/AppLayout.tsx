@@ -27,7 +27,6 @@ import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import QueueIcon from "@mui/icons-material/Queue";
 
-import { Footer } from "../Footer";
 import { useAdmin } from "../../context/useAdmin";
 import { AdminSelectorDialog } from "../admin/AdminSelectorDialog";
 import { ServiceStatusIndicator } from "./ServiceStatusIndicator";
@@ -280,12 +279,20 @@ export function AppLayout() {
                     minWidth: 0,
                     display: "flex",
                     flexDirection: "column",
+                    overflow: "hidden",
                 }}
             >
-                <Box sx={{ flexGrow: 1, p: 3, overflow: "auto" }}>
+                <Box
+                    sx={{
+                        flexGrow: 1,
+                        p: 3,
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                >
                     <Outlet />
                 </Box>
-                <Footer />
             </Box>
 
             <AdminSelectorDialog />

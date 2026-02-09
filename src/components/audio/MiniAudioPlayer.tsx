@@ -133,14 +133,7 @@ export const MiniAudioPlayer = forwardRef<
         {src && <source src={src} />}
       </audio>
 
-      <Box onClick={handleProgressClick} sx={{ cursor: "pointer", mb: 0.5 }}>
-        <LinearProgress
-          variant={duration ? "determinate" : "indeterminate"}
-          value={duration ? (currentTime / duration) * 100 : undefined}
-        />
-      </Box>
-
-      <Stack direction="row" alignItems="center" spacing={0.5}>
+      <Stack direction="row" alignItems="center" spacing={1}>
         <Tooltip title={isPlaying ? "Pause" : "Play"}>
           <span>
             <IconButton
@@ -175,7 +168,13 @@ export const MiniAudioPlayer = forwardRef<
             </IconButton>
           </span>
         </Tooltip>
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+        <Box onClick={handleProgressClick} sx={{ cursor: "pointer", flex: 1 }}>
+          <LinearProgress
+            variant={duration ? "determinate" : "indeterminate"}
+            value={duration ? (currentTime / duration) * 100 : undefined}
+          />
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ minWidth: 65 }}>
           {formatTime(currentTime)} / {formatTime(duration)}
         </Typography>
       </Stack>
