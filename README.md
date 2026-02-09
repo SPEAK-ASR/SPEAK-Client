@@ -55,11 +55,11 @@ VITE_AUDIO_SCRAPING_BASE_URL=http://localhost:8000
 VITE_TRANSCRIPTION_API_URL=http://localhost:5000/api/v1
 ```
 
-| Variable | Description | Default |
-| --- | --- | --- |
-| `VITE_AUDIO_SCRAPING_API_URL` | REST base URL for Audio-Scraping-Service | `http://localhost:8000/api/v1` |
-| `VITE_AUDIO_SCRAPING_BASE_URL` | Direct host serving generated audio | `http://localhost:8000` |
-| `VITE_TRANSCRIPTION_API_URL` | FastAPI Transcription-Service base URL | `http://localhost:5000/api/v1` |
+| Variable                       | Description                              | Default                        |
+| ------------------------------ | ---------------------------------------- | ------------------------------ |
+| `VITE_AUDIO_SCRAPING_API_URL`  | REST base URL for Audio-Scraping-Service | `http://localhost:8000/api/v1` |
+| `VITE_AUDIO_SCRAPING_BASE_URL` | Direct host serving generated audio      | `http://localhost:8000`        |
+| `VITE_TRANSCRIPTION_API_URL`   | FastAPI Transcription-Service base URL   | `http://localhost:5000/api/v1` |
 
 > Both services enforce CORS; ensure your Vite dev server (`http://localhost:5173`) and production domain are whitelisted.
 

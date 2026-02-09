@@ -1,7 +1,7 @@
 // src/hooks/useChannelCards.ts
-import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
-import type { ChannelCard } from '../types/channel';
+import { useEffect, useState, useCallback } from "react";
+import axios from "axios";
+import type { ChannelCard } from "../types/channel";
 
 interface UseChannelCardsResult {
     channels: ChannelCard[];
@@ -12,7 +12,8 @@ interface UseChannelCardsResult {
 }
 
 const AUDIO_API_BASE =
-    import.meta.env.VITE_AUDIO_SCRAPING_API_URL ?? 'http://localhost:8000/api/v1';
+    import.meta.env.VITE_AUDIO_SCRAPING_API_URL ??
+    "http://localhost:8000/api/v1";
 
 export function useChannelCards(): UseChannelCardsResult {
     const [channels, setChannels] = useState<ChannelCard[]>([]);
@@ -23,15 +24,17 @@ export function useChannelCards(): UseChannelCardsResult {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get<ChannelCard[]>(`${AUDIO_API_BASE}/channels`);
+            const response = await axios.get<ChannelCard[]>(
+                `${AUDIO_API_BASE}/channels`,
+            );
             const data = response.data;
 
             // Hide any channels that are already soft-deleted
-            const visible = data.filter(ch => !ch.isDeleted);
+            const visible = data.filter((ch) => !ch.isDeleted);
             setChannels(visible);
         } catch (e: unknown) {
             console.error(e);
-            setError(e instanceof Error ? e.message : 'Unknown error');
+            setError(e instanceof Error ? e.message : "Unknown error");
         } finally {
             setLoading(false);
         }
@@ -44,13 +47,15 @@ export function useChannelCards(): UseChannelCardsResult {
     const deleteChannel = useCallback(async (channelId: string) => {
         try {
             await axios.delete(
-                `${AUDIO_API_BASE}/channels/${encodeURIComponent(channelId)}`
+                `${AUDIO_API_BASE}/channels/${encodeURIComponent(channelId)}`,
             );
 
             // Optimistic update – immediately hide the deleted channel
-            setChannels(prev => prev.filter(c => c.channelId !== channelId));
+            setChannels((prev) =>
+                prev.filter((c) => c.channelId !== channelId),
+            );
         } catch (e) {
-            console.error('Failed to delete channel:', e);
+            console.error("Failed to delete channel:", e);
             // Re-throw the error so the caller can handle it
             throw e;
         }
