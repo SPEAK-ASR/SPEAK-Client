@@ -12,6 +12,7 @@ export interface AudioTask {
   audio_id: string;
   audio_filename: string;
   google_transcription?: string | null;
+  speak_transcription?: string | null;
   transcription_count: number;
   gcs_signed_url: string;
 }
@@ -29,6 +30,7 @@ export interface TranscriptionSubmissionPayload {
   is_audio_suitable: boolean;
   admin?: AdminName | null;
   validated_at?: string | null;
+  is_best_google?: boolean | null;
 }
 
 export interface ValidationSubmissionPayload {
@@ -52,6 +54,7 @@ export interface TranscriptionRecord {
   admin: AdminName | null;
   validated_at: string | null;
   created_at: string | null;
+  is_best_google?: boolean | null;
 }
 
 export interface ValidationQueueItem {

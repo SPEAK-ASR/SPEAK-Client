@@ -21,11 +21,76 @@ import {
 
 const GUIDELINES_KEY = "transcriptionGuidelinesClosed";
 
+type RefBackend = "google" | "speak";
+
+type RefLayout =
+    | { kind: "none" }
+    | { kind: "unified"; text: string }
+    | { kind: "single"; text: string; source: RefBackend }
+    | {
+          kind: "dual";
+          ref1: { text: string; source: RefBackend };
+          ref2: { text: string; source: RefBackend };
+      };
+
+function normalizeRefText(s: string | null | undefined): string {
+    if (!s?.trim()) return "";
+    return s.trim().split(/\s+/).join(" ");
+}
+
+function computeRefLayout(
+    google: string | null | undefined,
+    speak: string | null | undefined,
+): RefLayout {
+    const gTrim = google?.trim() ?? "";
+    const sTrim = speak?.trim() ?? "";
+    const gNorm = normalizeRefText(google);
+    const sNorm = normalizeRefText(speak);
+    if (!gNorm && !sNorm) return { kind: "none" };
+    if (gNorm && sNorm && gNorm === sNorm) {
+        return { kind: "unified", text: gTrim };
+    }
+    if (gNorm && !sNorm)
+        return { kind: "single", text: gTrim, source: "google" };
+    if (!gNorm && sNorm)
+        return { kind: "single", text: sTrim, source: "speak" };
+    const swap = Math.random() >= 0.5;
+    if (swap) {
+        return {
+            kind: "dual",
+            ref1: { text: sTrim, source: "speak" },
+            ref2: { text: gTrim, source: "google" },
+        };
+    }
+    return {
+        kind: "dual",
+        ref1: { text: gTrim, source: "google" },
+        ref2: { text: sTrim, source: "speak" },
+    };
+}
+
+function successMessageForPreference(
+    isBestGoogle: boolean | null | undefined,
+): string {
+    if (isBestGoogle === true) {
+        return "Submitted. Google Speech-to-Text gained a point. Loading next audio...";
+    }
+    if (isBestGoogle === false) {
+        return "Submitted. SPEAK Sinhala ASR gained a point. Loading next audio...";
+    }
+    return "Transcription submitted successfully. Loading next audio...";
+}
+
+const REF_DESCRIPTION =
+    "Anonymous machine reference only — verify by ear before submitting.";
+
 export function TranscriptionPage() {
     // Data state
     const [audioTask, setAudioTask] = useState<AudioTask | null>(null);
     const [metadata, setMetadata] =
         useState<TranscriptionMetadata>(DEFAULT_METADATA);
+    /** Tracks copy-based preference: true = Google ref copied, false = SPEAK, null = no scoring */
+    const [asrPreference, setAsrPreference] = useState<boolean | null>(null);
 
     // UI state
     const [loadingAudio, setLoadingAudio] = useState(true);
@@ -43,6 +108,22 @@ export function TranscriptionPage() {
     const { snackbar, showSuccess, showError, showInfo, closeSnackbar } =
         useSnackbar();
     const { admin, isAdmin } = useAdmin();
+
+    const refLayout = useMemo((): RefLayout => {
+        if (!audioTask) return { kind: "none" };
+        return computeRefLayout(
+            audioTask.google_transcription,
+            audioTask.speak_transcription,
+        );
+    }, [
+        audioTask?.audio_id,
+        audioTask?.google_transcription,
+        audioTask?.speak_transcription,
+    ]);
+
+    useEffect(() => {
+        setAsrPreference(null);
+    }, [audioTask?.audio_id]);
 
     // Load initial audio
     useEffect(() => {
@@ -64,6 +145,7 @@ export function TranscriptionPage() {
         setLoadingAudio(true);
         setSubmitting(false);
         setMetadata(DEFAULT_METADATA);
+        setAsrPreference(null);
         if (textareaRef.current) {
             textareaRef.current.value = "";
         }
@@ -92,17 +174,15 @@ export function TranscriptionPage() {
                 return "Please select the speaker gender.";
             if (!value.trim()) return "Transcription cannot be empty.";
             if (value.trim().length < 3)
-                return "Transcription looks too short. Please double-check.";
+                return "Transcription looks too short. Please double-check.");
+
             return null;
         },
         [audioTask, metadata.speakerGender],
     );
 
     const submitTranscription = useCallback(
-        async (
-            payload: TranscriptionSubmissionPayload,
-            successMessage: string,
-        ) => {
+        async (payload: TranscriptionSubmissionPayload, successMessage: string) => {
             try {
                 setSubmitting(true);
                 await transcriptionServiceApi.submitTranscription(payload);
@@ -140,17 +220,19 @@ export function TranscriptionPage() {
                 is_audio_suitable: true,
                 admin: admin ?? undefined,
                 validated_at: admin ? new Date().toISOString() : undefined,
+                is_best_google: asrPreference,
             };
 
             await submitTranscription(
                 payload,
-                "Transcription submitted successfully. Loading next audio...",
+                successMessageForPreference(asrPreference),
             );
         },
         [
             audioTask,
             metadata,
             admin,
+            asrPreference,
             validateBeforeSubmit,
             submitTranscription,
             showError,
@@ -172,6 +254,7 @@ export function TranscriptionPage() {
             is_speaker_overlappings_exist: false,
             is_audio_suitable: false,
             admin: admin ?? undefined,
+            is_best_google: null,
         };
         await submitTranscription(
             payload,
@@ -179,18 +262,46 @@ export function TranscriptionPage() {
         );
     }, [audioTask, admin, submitTranscription]);
 
-    const handleCopyReference = useCallback(() => {
-        if (!textareaRef.current || !audioTask?.google_transcription) return;
-        textareaRef.current.value = audioTask.google_transcription.trim();
-        showInfo(
-            "Reference copied to editor. Please review before submitting.",
-        );
-    }, [audioTask, showInfo]);
-
-    const referenceText = useMemo(
-        () => audioTask?.google_transcription?.trim(),
-        [audioTask],
+    const copyIntoEditor = useCallback(
+        (text: string, preference: boolean | null) => {
+            if (!textareaRef.current) return;
+            textareaRef.current.value = text.trim();
+            setAsrPreference(preference);
+            showInfo(
+                "Reference copied to the editor. Listen again and correct if needed.",
+            );
+        },
+        [showInfo],
     );
+
+    const handleCopyUnified = useCallback(() => {
+        if (refLayout.kind !== "unified") return;
+        copyIntoEditor(refLayout.text, null);
+    }, [refLayout, copyIntoEditor]);
+
+    const handleCopyRef1 = useCallback(() => {
+        if (refLayout.kind === "dual") {
+            copyIntoEditor(
+                refLayout.ref1.text,
+                refLayout.ref1.source === "google",
+            );
+        } else if (refLayout.kind === "single") {
+            copyIntoEditor(
+                refLayout.text,
+                refLayout.source === "google",
+            );
+        }
+    }, [refLayout, copyIntoEditor]);
+
+    const handleCopyRef2 = useCallback(() => {
+        if (refLayout.kind !== "dual") return;
+        copyIntoEditor(
+            refLayout.ref2.text,
+            refLayout.ref2.source === "google",
+        );
+    }, [refLayout, copyIntoEditor]);
+
+    const showReferenceCards = refLayout.kind !== "none";
 
     return (
         <Box component="section">
@@ -244,13 +355,39 @@ export function TranscriptionPage() {
                             skipDisabled={submitting}
                         />
 
-                        {/* Reference (admin only) */}
-                        {isAdmin && referenceText && (
+                        {showReferenceCards && refLayout.kind === "unified" && (
                             <ReferenceCard
-                                text={referenceText}
-                                description="Double-check output before copying. Reference Only"
-                                onCopy={handleCopyReference}
+                                title="References (identical)"
+                                text={refLayout.text}
+                                description={`${REF_DESCRIPTION} Both anonymous references match.`}
+                                onCopy={handleCopyUnified}
                             />
+                        )}
+
+                        {showReferenceCards && refLayout.kind === "single" && (
+                            <ReferenceCard
+                                title="Reference 1"
+                                text={refLayout.text}
+                                description={REF_DESCRIPTION}
+                                onCopy={handleCopyRef1}
+                            />
+                        )}
+
+                        {showReferenceCards && refLayout.kind === "dual" && (
+                            <>
+                                <ReferenceCard
+                                    title="Reference 1"
+                                    text={refLayout.ref1.text}
+                                    description={REF_DESCRIPTION}
+                                    onCopy={handleCopyRef1}
+                                />
+                                <ReferenceCard
+                                    title="Reference 2"
+                                    text={refLayout.ref2.text}
+                                    description={REF_DESCRIPTION}
+                                    onCopy={handleCopyRef2}
+                                />
+                            </>
                         )}
                     </Stack>
 
