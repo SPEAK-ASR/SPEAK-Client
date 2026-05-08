@@ -7,24 +7,23 @@ import { ValidationPage } from "./pages/ValidationPage";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import ChannelBrowserPage from "./pages/ChannelBrowserPage";
 import { QueueProcessorPage } from "./pages/QueueProcessorPage";
+import { CsvNormalizationPage } from "./pages/CsvNormalizationPage";
 
 function App() {
-    return (
-        <Routes>
-            <Route element={<AppLayout />}>
-                <Route index element={<AudioProcessorPage />} />
-                <Route path="statistics" element={<StatisticsPage />} />
-                <Route path="transcription" element={<TranscriptionPage />} />
-                <Route path="validation" element={<ValidationPage />} />
-                <Route path="leaderboard" element={<LeaderboardPage />} />
-                <Route path="channels" element={<ChannelBrowserPage />} />
-                <Route
-                    path="queue-processor"
-                    element={<QueueProcessorPage />}
-                />
-            </Route>
-        </Routes>
-    );
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route index element={<AudioProcessorPage />} />
+        <Route path="statistics" element={<StatisticsPage />} />
+        <Route path="transcription" element={<TranscriptionPage />} />
+        <Route path="validation" element={<ValidationPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="channels" element={<ChannelBrowserPage />} />
+        <Route path="queue-processor" element={<QueueProcessorPage />} />
+        <Route path="csv-normalization" element={<CsvNormalizationPage />} />
+      </Route>
+    </Routes>
+  );
 }
 
 export default App;

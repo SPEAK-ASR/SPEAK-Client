@@ -85,6 +85,14 @@ export interface TranscriptionMetadata {
     speaker_overlapping: SpeakerOverlappingData;
 }
 
+export interface AsrReferencePreferenceStats {
+    google_chosen: number;
+    speak_chosen: number;
+    neutral: number;
+    decisive_total: number;
+    google_share_percent: number | null;
+}
+
 export interface StatisticsResponse {
     success: boolean;
     message: string;
@@ -95,6 +103,7 @@ export interface StatisticsResponse {
     admin_contributions: AdminContributionData[];
     audio_distribution: AudioDurationDistribution[];
     transcription_metadata: TranscriptionMetadata;
+    asr_reference_preference?: AsrReferencePreferenceStats;
 }
 
 export const statisticsApi = {

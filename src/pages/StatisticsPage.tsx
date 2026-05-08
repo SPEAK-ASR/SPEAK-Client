@@ -19,10 +19,12 @@ import { DailyTranscriptionGraph } from "../components/statistics/DailyTranscrip
 import { AdminContributionChart } from "../components/statistics/AdminContributionChart";
 import { AudioDistributionGraph } from "../components/statistics/AudioDistributionGraph";
 import { TranscriptionMetadataChart } from "../components/statistics/TranscriptionMetadataChart";
+import { AsrReferencePreferenceCard } from "../components/statistics/AsrReferencePreferenceCard";
 
 // Memoized chart components to prevent re-renders during sidebar hover
 const MemoizedSummaryCards = memo(SummaryCards);
 const MemoizedTranscriptionMetadataChart = memo(TranscriptionMetadataChart);
+const MemoizedAsrReferencePreferenceCard = memo(AsrReferencePreferenceCard);
 const MemoizedTranscriptionStatusChart = memo(TranscriptionStatusChart);
 const MemoizedCategoryDurationChart = memo(CategoryDurationChart);
 const MemoizedAdminContributionChart = memo(AdminContributionChart);
@@ -203,6 +205,12 @@ export function StatisticsPage() {
                 <MemoizedTranscriptionMetadataChart
                     data={statistics.transcription_metadata}
                 />
+
+                {statistics.asr_reference_preference && (
+                    <MemoizedAsrReferencePreferenceCard
+                        data={statistics.asr_reference_preference}
+                    />
+                )}
 
                 {/* Row 1: Two columns */}
                 <Box
