@@ -7,11 +7,13 @@ import {
   GuidelinesCard,
   ActionButtons,
   UnsuitableDialog,
+  PointCelebrationDialog,
   NotificationSnackbar,
 } from "../components/transcription";
 import { useSnackbar } from "../hooks/useSnackbar";
 import { useAdmin } from "../context/useAdmin";
 import { DEFAULT_METADATA, type TranscriptionMetadata } from "../types/common";
+import { copyToClipboard } from "../lib/utils";
 import {
   transcriptionServiceApi,
   type AudioTask,
@@ -94,6 +96,13 @@ export function TranscriptionPage() {
   const [loadingAudio, setLoadingAudio] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [unsuitableDialog, setUnsuitableDialog] = useState(false);
+  const [pointCelebration, setPointCelebration] = useState<{
+    open: boolean;
+    asrSystem: "google" | "speak" | null;
+  }>({
+    open: false,
+    asrSystem: null,
+  });
   const [guidelinesCollapsed, setGuidelinesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(GUIDELINES_KEY) === "1";
@@ -183,8 +192,22 @@ export function TranscriptionPage() {
       try {
         setSubmitting(true);
         await transcriptionServiceApi.submitTranscription(payload);
-        showSuccess(successMessage);
-        await loadNextAudio();
+
+        // Check if a point was gained - show celebration modal instead of snackbar
+        if (successMessage.includes("gained a point")) {
+          const asrSystem = successMessage.includes("Google")
+            ? "google"
+            : "speak";
+          setPointCelebration({ open: true, asrSystem });
+          // Load next audio after a delay to let user see the celebration
+          setTimeout(() => {
+            loadNextAudio();
+          }, 2000);
+        } else {
+          // Regular success message for non-point submissions
+          showSuccess(successMessage);
+          await loadNextAudio();
+        }
       } catch (error) {
         console.error(error);
         showError("Failed to submit transcription.");
@@ -289,6 +312,37 @@ export function TranscriptionPage() {
     copyIntoEditor(refLayout.ref2.text, refLayout.ref2.source === "google");
   }, [refLayout, copyIntoEditor]);
 
+  const handleCopyToClipboard = useCallback(
+    async (text: string) => {
+      try {
+        await copyToClipboard(text);
+        showInfo("Copied to clipboard");
+      } catch (error) {
+        console.error(error);
+        showError("Failed to copy text");
+      }
+    },
+    [showInfo, showError],
+  );
+
+  const handleCopyRef1NoScore = useCallback(() => {
+    if (refLayout.kind === "dual") {
+      handleCopyToClipboard(refLayout.ref1.text);
+    } else if (refLayout.kind === "single") {
+      handleCopyToClipboard(refLayout.text);
+    }
+  }, [refLayout, handleCopyToClipboard]);
+
+  const handleCopyRef2NoScore = useCallback(() => {
+    if (refLayout.kind !== "dual") return;
+    handleCopyToClipboard(refLayout.ref2.text);
+  }, [refLayout, handleCopyToClipboard]);
+
+  const handleCopyUnifiedNoScore = useCallback(() => {
+    if (refLayout.kind !== "unified") return;
+    handleCopyToClipboard(refLayout.text);
+  }, [refLayout, handleCopyToClipboard]);
+
   const showReferenceCards = refLayout.kind !== "none";
 
   return (
@@ -347,6 +401,7 @@ export function TranscriptionPage() {
                 text={refLayout.text}
                 description={`${REF_DESCRIPTION} Both anonymous references match.`}
                 onCopy={handleCopyUnified}
+                onCopyNoScore={handleCopyUnifiedNoScore}
               />
             )}
 
@@ -356,6 +411,7 @@ export function TranscriptionPage() {
                 text={refLayout.text}
                 description={REF_DESCRIPTION}
                 onCopy={handleCopyRef1}
+                onCopyNoScore={handleCopyRef1NoScore}
               />
             )}
 
@@ -366,12 +422,14 @@ export function TranscriptionPage() {
                   text={refLayout.ref1.text}
                   description={REF_DESCRIPTION}
                   onCopy={handleCopyRef1}
+                  onCopyNoScore={handleCopyRef1NoScore}
                 />
                 <ReferenceCard
                   title="Reference 2"
                   text={refLayout.ref2.text}
                   description={REF_DESCRIPTION}
                   onCopy={handleCopyRef2}
+                  onCopyNoScore={handleCopyRef2NoScore}
                 />
               </>
             )}
@@ -404,6 +462,12 @@ export function TranscriptionPage() {
         open={unsuitableDialog}
         onClose={() => setUnsuitableDialog(false)}
         onConfirm={handleUnsuitableConfirm}
+      />
+
+      <PointCelebrationDialog
+        open={pointCelebration.open}
+        asrSystem={pointCelebration.asrSystem ?? undefined}
+        onClose={() => setPointCelebration({ open: false, asrSystem: null })}
       />
 
       <NotificationSnackbar snackbar={snackbar} onClose={closeSnackbar} />
