@@ -84,6 +84,10 @@ export function TranscriptionPage() {
     asrSystem: "google" | "speak" | null;
   }>({ open: false, asrSystem: null });
 
+  const onCelebrationOpenChange = useCallback((open: boolean) => {
+    setCelebration((p) => ({ ...p, open }));
+  }, []);
+
   const [guidelinesCollapsed, setGuidelinesCollapsed] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -115,6 +119,7 @@ export function TranscriptionPage() {
     setSubmitting(false);
     setMetadata(DEFAULT_METADATA);
     setAsrPreference(null);
+    setCelebration({ open: false, asrSystem: null });
     if (textareaRef.current) textareaRef.current.value = "";
     try {
       const data = await transcriptionServiceApi.fetchRandomAudio();
@@ -172,7 +177,7 @@ export function TranscriptionPage() {
         await transcriptionServiceApi.submitTranscription(payload);
         if (asrSystemForCelebration) {
           setCelebration({ open: true, asrSystem: asrSystemForCelebration });
-          setTimeout(() => loadNext(), 1500);
+          setTimeout(() => loadNext(), 2000);
         } else {
           toast.success(successMessage);
           await loadNext();
@@ -384,9 +389,7 @@ export function TranscriptionPage() {
       <PointCelebrationDialog
         open={celebration.open}
         asrSystem={celebration.asrSystem}
-        onOpenChange={(open) =>
-          setCelebration((p) => ({ ...p, open }))
-        }
+        onOpenChange={onCelebrationOpenChange}
       />
     </>
   );

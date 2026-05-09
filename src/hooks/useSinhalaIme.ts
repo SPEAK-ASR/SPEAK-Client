@@ -1,9 +1,11 @@
-import { type RefObject, useEffect } from "react";
+import { type MutableRefObject, type RefObject, useEffect } from "react";
 
 interface SinhalaImeTargets {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   toggleRef?: RefObject<HTMLInputElement | null>;
   chipRef?: RefObject<HTMLButtonElement | null>;
+  /** Filled while the IME controller is attached; cleared on detach. */
+  controllerRef?: MutableRefObject<SinhalaImeController | null>;
 }
 
 /**
@@ -15,11 +17,16 @@ export function useSinhalaIme({
   textareaRef,
   toggleRef,
   chipRef,
+  controllerRef,
 }: SinhalaImeTargets) {
   useEffect(() => {
     let detach: (() => void) | undefined;
     let cancelled = false;
     let interval: number | undefined;
+
+    const clearControllerRef = () => {
+      if (controllerRef) controllerRef.current = null;
+    };
 
     const tryAttach = () => {
       if (!textareaRef.current || typeof window === "undefined") return false;
@@ -35,6 +42,9 @@ export function useSinhalaIme({
         });
         if (controller && typeof controller.detach === "function") {
           detach = controller.detach;
+        }
+        if (controllerRef && controller) {
+          controllerRef.current = controller;
         }
         if (controller) {
           try {
@@ -72,6 +82,7 @@ export function useSinhalaIme({
       cancelled = true;
       if (interval) window.clearInterval(interval);
       if (typeof detach === "function") detach();
+      clearControllerRef();
     };
-  }, [textareaRef, toggleRef, chipRef]);
+  }, [textareaRef, toggleRef, chipRef, controllerRef]);
 }

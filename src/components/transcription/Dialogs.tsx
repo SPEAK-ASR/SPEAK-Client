@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Award, Loader2, ShieldAlert } from "lucide-react";
 import {
@@ -103,6 +103,14 @@ export function PointCelebrationDialog({
       : asrSystem === "speak"
         ? "SPEAK Sinhala ASR"
         : "Reference";
+
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => {
+      onOpenChange(false);
+    }, 2000);
+    return () => window.clearTimeout(id);
+  }, [open, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Languages, Pencil } from "lucide-react";
 import { useSinhalaIme } from "../../hooks/useSinhalaIme";
+import { Badge } from "../ui/badge";
 import {
   Card,
   CardContent,
@@ -44,10 +45,57 @@ export function TranscriptionEditor({
 }: TranscriptionEditorProps) {
   const toggleRef = useRef<HTMLInputElement>(null);
   const chipRef = useRef<HTMLButtonElement>(null);
+  const imeControllerRef = useRef<SinhalaImeController | null>(null);
   const [imeOn, setImeOn] = useState(true);
+  /** si/en while master IME is on — from sin-phonetic-ime.js (Ctrl+Space, chip). */
+  const [scriptMode, setScriptMode] = useState<"si" | "en">("si");
   const [text, setText] = useState("");
 
-  useSinhalaIme({ textareaRef, toggleRef, chipRef });
+  useSinhalaIme({
+    textareaRef,
+    toggleRef,
+    chipRef,
+    controllerRef: imeControllerRef,
+  });
+
+  const applyModeFromController = useCallback(() => {
+    const c = imeControllerRef.current;
+    const on = toggleRef.current?.checked ?? false;
+    if (on && c) setScriptMode(c.mode);
+    else setScriptMode("en");
+  }, []);
+
+  useLayoutEffect(() => {
+    const input = toggleRef.current;
+    if (!input) return;
+    const syncFromToggle = () => {
+      setImeOn(input.checked);
+      queueMicrotask(applyModeFromController);
+    };
+    syncFromToggle();
+    input.addEventListener("change", syncFromToggle);
+    return () => input.removeEventListener("change", syncFromToggle);
+  }, [applyModeFromController]);
+
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.code === "Space") {
+        queueMicrotask(applyModeFromController);
+      }
+    };
+    ta.addEventListener("keydown", onKeyDown);
+    return () => ta.removeEventListener("keydown", onKeyDown);
+  }, [textareaRef, applyModeFromController]);
+
+  useEffect(() => {
+    const chip = chipRef.current;
+    if (!chip) return;
+    const onChipClick = () => queueMicrotask(applyModeFromController);
+    chip.addEventListener("click", onChipClick);
+    return () => chip.removeEventListener("click", onChipClick);
+  }, [applyModeFromController]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -65,27 +113,38 @@ export function TranscriptionEditor({
 
   return (
     <Card className="lg:sticky lg:top-20 self-start">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+      {/* Hidden IME helpers consumed by sin-phonetic-ime.js — before header so refs exist early */}
+      <input ref={toggleRef} type="checkbox" defaultChecked className="hidden" />
+      <button ref={chipRef} type="button" className="hidden ime-chip">
+        IME
+      </button>
+      <CardHeader className="pb-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
-              <Pencil className="size-4" />
+              <Pencil className="size-4" aria-hidden />
             </span>
-            <div>
+            <div className="min-w-0">
               <CardTitle>Transcription</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Output language: Sinhala
+                Type in Sinhala script. Use the switch for phonetic IME vs English
+                keyboard.
               </p>
             </div>
           </div>
           <label
             className={cn(
-              "flex items-center gap-2 cursor-pointer select-none rounded-md px-2 py-1.5",
+              "flex items-center gap-2 cursor-pointer select-none rounded-md px-2 py-1.5 shrink-0",
               "hover:bg-accent",
             )}
+            aria-label={
+              imeOn
+                ? "Sinhala IME enabled, switch off for plain Latin keyboard"
+                : "Sinhala IME disabled, switch on for phonetic input"
+            }
           >
-            <Languages className="size-4 text-muted-foreground" />
-            <span className="text-xs">Sinhala IME</span>
+            <Languages className="size-4 text-muted-foreground" aria-hidden />
+            <span className="text-xs whitespace-nowrap">Sinhala IME</span>
             <Switch
               checked={imeOn}
               onCheckedChange={(v) => {
@@ -96,9 +155,55 @@ export function TranscriptionEditor({
                     new Event("change", { bubbles: true }),
                   );
                 }
+                queueMicrotask(applyModeFromController);
               }}
             />
           </label>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Active input
+          </span>
+          <Badge
+            variant={
+              imeOn && scriptMode === "si" ? "default" : "secondary"
+            }
+            className={cn(
+              "font-normal gap-1 border-transparent",
+              imeOn &&
+                scriptMode === "si" &&
+                "shadow-[0_0_0_1px_hsl(220_70%_60%/0.25)]",
+            )}
+          >
+            {!imeOn ? (
+              <>
+                <span className="font-semibold tracking-tight">EN</span>
+                <span className="text-muted-foreground font-normal">·</span>
+                <span>Latin keyboard</span>
+              </>
+            ) : scriptMode === "si" ? (
+              <>
+                <span className="text-sm leading-none" lang="si">
+                  සිංහල
+                </span>
+                <span className="text-muted-foreground font-normal">·</span>
+                <span>Phonetic typing</span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold tracking-tight">EN</span>
+                <span className="text-muted-foreground font-normal">·</span>
+                <span>Latin (IME on)</span>
+              </>
+            )}
+          </Badge>
+          <span className="text-[10px] text-muted-foreground">
+            Ctrl+Space in field toggles සිංහල ↔ EN
+          </span>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -114,12 +219,6 @@ export function TranscriptionEditor({
             {wordCount} words · {charCount} chars
           </div>
         </div>
-
-        {/* Hidden IME helpers consumed by sin-phonetic-ime.js */}
-        <input ref={toggleRef} type="checkbox" defaultChecked className="hidden" />
-        <button ref={chipRef} type="button" className="hidden ime-chip">
-          IME
-        </button>
 
         <div className="space-y-1.5">
           <Label htmlFor="speaker-gender">Speaker gender</Label>
