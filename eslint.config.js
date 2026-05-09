@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-    globalIgnores(["dist"]),
+    globalIgnores(["dist", "reference"]),
     {
         files: ["**/*.{ts,tsx}"],
         extends: [
@@ -18,6 +18,18 @@ export default defineConfig([
         languageOptions: {
             ecmaVersion: 2020,
             globals: globals.browser,
+        },
+    },
+    {
+        // shadcn-style primitives + context providers intentionally export
+        // both components and helpers; relax fast-refresh rule for them.
+        files: [
+            "src/components/ui/**/*.{ts,tsx}",
+            "src/components/stats/**/*.{ts,tsx}",
+            "src/context/**/*.{ts,tsx}",
+        ],
+        rules: {
+            "react-refresh/only-export-components": "off",
         },
     },
 ]);

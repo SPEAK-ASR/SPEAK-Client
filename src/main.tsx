@@ -1,22 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { ThemeProvider } from "@mui/material/styles";
-import { CssBaseline } from "@mui/material";
-import { theme } from "./theme/theme";
-import "./index.css";
-import App from "./App.tsx";
+import App from "./App";
 import { AdminProvider } from "./context/AdminContext";
+import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-        <BrowserRouter>
-            <ThemeProvider theme={theme}>
-                <CssBaseline />
-                <AdminProvider>
-                    <App />
-                </AdminProvider>
-            </ThemeProvider>
-        </BrowserRouter>
-    </StrictMode>,
+  <StrictMode>
+    <BrowserRouter>
+      <AdminProvider>
+        <App />
+      </AdminProvider>
+    </BrowserRouter>
+  </StrictMode>,
 );

@@ -1,428 +1,393 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Crown, Medal, Trophy, TrendingUp } from "lucide-react";
+import { PageHeader } from "../components/layout/PageHeader";
+import { useAdmin } from "../context/useAdmin";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Badge } from "../components/ui/badge";
 import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  ButtonGroup,
   Card,
   CardContent,
-  Skeleton,
-  Stack,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Skeleton } from "../components/ui/skeleton";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  Typography,
-} from '@mui/material';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import { transcriptionServiceApi, type AdminLeaderboardEntry, type LeaderboardRange } from '../lib/transcriptionServiceApi';
-import { useAdmin } from '../context/useAdmin';
+} from "../components/ui/table";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  transcriptionServiceApi,
+  type AdminLeaderboardEntry,
+  type LeaderboardRange,
+} from "../lib/transcriptionServiceApi";
+import { cn, formatNumber } from "../lib/utils";
+import { fadeUp, stagger } from "../lib/motion";
 
-interface LeaderboardState {
+const RANGE_LABELS: Record<LeaderboardRange, string> = {
+  all: "All time",
+  week: "This week",
+  month: "This month",
+};
+
+interface State {
   leaders: AdminLeaderboardEntry[];
   total: number;
 }
 
-const RANGE_LABELS: Record<LeaderboardRange, string> = {
-  all: 'All time',
-  week: 'This week',
-  month: 'This month',
-};
-
 export function LeaderboardPage() {
-  const [range, setRange] = useState<LeaderboardRange>('all');
-  const [state, setState] = useState<LeaderboardState | null>(null);
+  const [range, setRange] = useState<LeaderboardRange>("all");
+  const [state, setState] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { profiles } = useAdmin();
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await transcriptionServiceApi.fetchLeaderboard(range);
+    setLoading(true);
+    setError(null);
+    transcriptionServiceApi
+      .fetchLeaderboard(range)
+      .then((data) => {
         if (!mounted) return;
         setState({ leaders: data.leaders, total: data.total });
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error(err);
         if (mounted) {
-          setError('Failed to load leaderboard.');
+          setError("Failed to load leaderboard.");
           setState(null);
         }
-      } finally {
+      })
+      .finally(() => {
         if (mounted) setLoading(false);
-      }
-    })();
+      });
     return () => {
       mounted = false;
     };
   }, [range]);
 
+  const getProfile = (id: string) =>
+    profiles.find((p) => p.id === id.toLowerCase());
+
   const topThree = state?.leaders.slice(0, 3) ?? [];
   const remainder = state?.leaders.slice(3) ?? [];
 
-  const getProfileImage = (adminName: string) => {
-    const profile = profiles.find(p => p.id === adminName.toLowerCase());
-    return profile?.imagePath;
-  };
-
-  const getMedalColor = (rank: number) => {
-    if (rank === 1) return { bg: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', icon: '#FFD700' };
-    if (rank === 2) return { bg: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)', icon: '#C0C0C0' };
-    if (rank === 3) return { bg: 'linear-gradient(135deg, #CD7F32 0%, #B8860B 100%)', icon: '#CD7F32' };
-    return { bg: 'linear-gradient(135deg, #424242 0%, #303030 100%)', icon: '#757575' };
-  };
-
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', py: 4 }}>
-      <Stack spacing={4}>
-        {/* Header */}
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h3" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-            <EmojiEventsIcon sx={{ fontSize: 40, color: '#FFD700' }} />
-            Leaderboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Top contributors to the transcription database
-          </Typography>
-        </Box>
+    <>
+      <PageHeader
+        eyebrow="Admin"
+        title="Leaderboard"
+        description="Top contributors to the transcription database."
+        actions={
+          state && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+              <TrendingUp className="size-4 text-primary" />
+              <span className="text-xs">
+                <span className="font-semibold tabular-nums">
+                  {formatNumber(state.total)}
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  contribution{state.total === 1 ? "" : "s"}
+                </span>
+              </span>
+            </div>
+          )
+        }
+      />
 
-        {/* Time Range Selector */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <ButtonGroup variant="outlined" size="medium">
-            {(Object.keys(RANGE_LABELS) as LeaderboardRange[]).map(key => (
-              <Button 
-                key={key} 
-                onClick={() => setRange(key)} 
-                variant={key === range ? 'contained' : 'outlined'}
-                sx={{ minWidth: 120 }}
-              >
-                {RANGE_LABELS[key]}
-              </Button>
-            ))}
-          </ButtonGroup>
-          {state && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.paper', px: 2, py: 1, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-              <TrendingUpIcon color="primary" />
-              <Typography variant="body2" fontWeight={600}>
-                {state.total.toLocaleString()} total contributions
-              </Typography>
-            </Box>
-          )}
-        </Box>
+      <Tabs
+        value={range}
+        onValueChange={(v) => setRange(v as LeaderboardRange)}
+        className="mb-5"
+      >
+        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-grid">
+          {(Object.keys(RANGE_LABELS) as LeaderboardRange[]).map((k) => (
+            <TabsTrigger key={k} value={k}>
+              {RANGE_LABELS[k]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-        {loading && (
-          <Stack spacing={4}>
-            {/* Skeleton for Top 3 Podium */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 3, flexWrap: 'wrap' }}>
-              {[2, 1, 3].map((rank) => (
-                <Card 
-                  key={rank}
-                  sx={{ 
-                    width: rank === 1 ? 260 : 240, 
-                    textAlign: 'center',
-                    transform: rank === 1 ? 'none' : 'translateY(20px)',
-                  }}
-                >
-                  <CardContent sx={{ py: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                      <Skeleton variant="circular" width={rank === 1 ? 120 : 100} height={rank === 1 ? 120 : 100} />
-                    </Box>
-                    <Skeleton variant="text" width="60%" height={32} sx={{ mx: 'auto', mb: 1 }} />
-                    <Skeleton variant="rounded" width="80%" height={48} sx={{ mx: 'auto' }} />
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-            
-            {/* Skeleton for Table */}
-            <Card variant="outlined">
-              <TableContainer>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {loading ? (
+        <LeaderboardSkeleton />
+      ) : !state || state.leaders.length === 0 ? (
+        <Alert variant="info">
+          <AlertDescription>
+            {error ?? "No admin transcriptions yet for this range."}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <motion.div
+          variants={stagger(0.06)}
+          initial="hidden"
+          animate="show"
+          className="space-y-6"
+        >
+          <Podium
+            entries={topThree}
+            getProfile={(id) => getProfile(id) ?? null}
+          />
+          {remainder.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Remaining ranks</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
                 <Table>
-                  <TableHead>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell width={80}><Skeleton variant="text" width={40} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                      <TableCell align="right"><Skeleton variant="text" width={80} /></TableCell>
+                      <TableHead className="w-16">Rank</TableHead>
+                      <TableHead>Admin</TableHead>
+                      <TableHead className="text-right">
+                        Contributions
+                      </TableHead>
+                      <TableHead className="text-right w-32">Badge</TableHead>
                     </TableRow>
-                  </TableHead>
+                  </TableHeader>
                   <TableBody>
-                    {[1, 2, 3, 4].map((i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton variant="text" width={30} /></TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Skeleton variant="circular" width={40} height={40} />
-                            <Skeleton variant="text" width={100} />
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right"><Skeleton variant="text" width={60} /></TableCell>
-                      </TableRow>
-                    ))}
+                    {remainder.map((entry, i) => {
+                      const rank = i + 4;
+                      const profile = getProfile(entry.admin);
+                      return (
+                        <TableRow key={entry.admin}>
+                          <TableCell className="font-mono text-sm text-muted-foreground tabular-nums">
+                            #{rank}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="size-8">
+                                {profile?.imagePath && (
+                                  <AvatarImage
+                                    src={profile.imagePath}
+                                    alt={entry.admin}
+                                  />
+                                )}
+                                <AvatarFallback>
+                                  {entry.admin.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-medium capitalize">
+                                {profile?.displayName ?? entry.admin}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold">
+                            {formatNumber(entry.count)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="muted">Contributor</Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              </CardContent>
             </Card>
-          </Stack>
+          )}
+        </motion.div>
+      )}
+    </>
+  );
+}
+
+function Podium({
+  entries,
+  getProfile,
+}: {
+  entries: AdminLeaderboardEntry[];
+  getProfile: (id: string) => { displayName?: string; imagePath?: string } | null;
+}) {
+  if (entries.length === 0) return null;
+
+  const order: Array<{ rank: 1 | 2 | 3; entry?: AdminLeaderboardEntry }> = [
+    { rank: 2, entry: entries[1] },
+    { rank: 1, entry: entries[0] },
+    { rank: 3, entry: entries[2] },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+      {order.map(({ rank, entry }) => (
+        <PodiumCard
+          key={rank}
+          rank={rank}
+          entry={entry}
+          profile={entry ? getProfile(entry.admin) : null}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PodiumCard({
+  rank,
+  entry,
+  profile,
+}: {
+  rank: 1 | 2 | 3;
+  entry?: AdminLeaderboardEntry;
+  profile: { displayName?: string; imagePath?: string } | null;
+}) {
+  if (!entry) {
+    return (
+      <Card
+        className={cn(
+          "opacity-30",
+          rank !== 1 && "md:translate-y-2",
         )}
+      >
+        <CardContent className="pt-8 pb-6 text-center">
+          <span className="text-xs text-muted-foreground">No entry</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
-        {error && <Alert severity="error">{error}</Alert>}
+  const accents = {
+    1: {
+      ring: "ring-amber-400/60",
+      bg: "bg-amber-400/10",
+      icon: Crown,
+      label: "1st",
+      text: "text-amber-400",
+    },
+    2: {
+      ring: "ring-zinc-300/40",
+      bg: "bg-zinc-400/10",
+      icon: Medal,
+      label: "2nd",
+      text: "text-zinc-300",
+    },
+    3: {
+      ring: "ring-orange-700/40",
+      bg: "bg-orange-600/10",
+      icon: Trophy,
+      label: "3rd",
+      text: "text-orange-500",
+    },
+  } as const;
 
-        {!loading && !error && state && state.leaders.length === 0 && (
-          <Alert severity="info">No admin transcriptions yet.</Alert>
+  const a = accents[rank];
+  const Icon = a.icon;
+
+  return (
+    <motion.div variants={fadeUp}>
+      <Card
+        className={cn(
+          "relative overflow-hidden transition-transform hover:-translate-y-0.5",
+          rank !== 1 && "md:translate-y-3",
         )}
+      >
+        <div className={cn("absolute inset-x-0 top-0 h-0.5", a.bg)} />
+        <CardContent className="pt-7 pb-6 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative">
+              <Avatar
+                className={cn(
+                  "ring-2 ring-offset-4 ring-offset-card",
+                  a.ring,
+                  rank === 1 ? "size-24" : "size-20",
+                )}
+              >
+                {profile?.imagePath && (
+                  <AvatarImage
+                    src={profile.imagePath}
+                    alt={entry.admin}
+                  />
+                )}
+                <AvatarFallback className={cn("text-2xl font-semibold", a.text)}>
+                  {entry.admin.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className={cn(
+                  "absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-background border border-border",
+                  a.text,
+                )}
+              >
+                <Icon className="size-3.5" strokeWidth={2.4} />
+              </span>
+            </div>
 
-        {!loading && !error && state && state.leaders.length > 0 && (
-          <Stack spacing={4}>
-            {/* Top 3 Podium */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 3, flexWrap: 'wrap' }}>
-              {topThree.length >= 2 && (
-                <Card 
-                  sx={{ 
-                    width: 240, 
-                    textAlign: 'center', 
-                    background: getMedalColor(2).bg,
-                    transform: 'translateY(20px)',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': { transform: 'translateY(15px) scale(1.05)' }
-                  }}
-                >
-                  <CardContent sx={{ py: 3 }}>
-                    <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                      <Avatar
-                        src={getProfileImage(topThree[1].admin)}
-                        alt={topThree[1].admin}
-                        sx={{ 
-                          width: 100, 
-                          height: 100, 
-                          border: '4px solid #C0C0C0',
-                          fontSize: '2.5rem',
-                          fontWeight: 700
-                        }}
-                      >
-                        {topThree[1].admin.charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Box sx={{ 
-                        position: 'absolute', 
-                        bottom: -8, 
-                        right: -8, 
-                        bgcolor: '#C0C0C0', 
-                        borderRadius: '50%', 
-                        width: 36, 
-                        height: 36, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: '3px solid white'
-                      }}>
-                        <Typography variant="h6" fontWeight="bold" color="white">2</Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="h5" fontWeight="bold" sx={{ textTransform: 'capitalize', mb: 1 }}>
-                      {topThree[1].admin}
-                    </Typography>
-                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.9)', borderRadius: 2, py: 1, px: 2 }}>
-                      <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                        {topThree[1].count.toLocaleString()}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">contributions</Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              )}
+            <div>
+              <p
+                className={cn(
+                  "text-[11px] uppercase tracking-[0.18em]",
+                  a.text,
+                )}
+              >
+                {a.label}
+              </p>
+              <p className="text-base font-semibold capitalize mt-1">
+                {profile?.displayName ?? entry.admin}
+              </p>
+            </div>
 
-              {topThree.length >= 1 && (
-                <Card 
-                  sx={{ 
-                    width: 260, 
-                    textAlign: 'center', 
-                    background: getMedalColor(1).bg,
-                    boxShadow: '0 8px 24px rgba(255, 215, 0, 0.3)',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': { transform: 'scale(1.05)' }
-                  }}
-                >
-                  <CardContent sx={{ py: 4 }}>
-                    {/* <EmojiEventsIcon sx={{ fontSize: 48, color: '#FFD700', mb: 1 }} /> */}
-                    <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                      <Avatar
-                        src={getProfileImage(topThree[0].admin)}
-                        alt={topThree[0].admin}
-                        sx={{ 
-                          width: 120, 
-                          height: 120, 
-                          border: '5px solid #FFD700',
-                          fontSize: '3rem',
-                          fontWeight: 700
-                        }}
-                      >
-                        {topThree[0].admin.charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Box sx={{ 
-                        position: 'absolute', 
-                        bottom: -8, 
-                        right: -8, 
-                        bgcolor: '#FFD700', 
-                        borderRadius: '50%', 
-                        width: 40, 
-                        height: 40, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: '3px solid white',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                      }}>
-                        <Typography variant="h5" fontWeight="bold" color="white">1</Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="h4" fontWeight="bold" sx={{ textTransform: 'capitalize', mb: 1 }}>
-                      {topThree[0].admin}
-                    </Typography>
-                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.95)', borderRadius: 2, py: 1.5, px: 2 }}>
-                      <Typography variant="h5" fontWeight="bold" color="text.secondary">
-                        {topThree[0].count.toLocaleString()}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">contributions</Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              )}
+            <div className="rounded-md border border-border bg-background/40 px-3 py-2 w-full">
+              <p className="text-2xl font-semibold tabular-nums">
+                {formatNumber(entry.count)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                contribution{entry.count === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
 
-              {topThree.length >= 3 && (
-                <Card 
-                  sx={{ 
-                    width: 240, 
-                    textAlign: 'center', 
-                    background: getMedalColor(3).bg,
-                    transform: 'translateY(20px)',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': { transform: 'translateY(15px) scale(1.05)' }
-                  }}
-                >
-                  <CardContent sx={{ py: 3 }}>
-                    <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                      <Avatar
-                        src={getProfileImage(topThree[2].admin)}
-                        alt={topThree[2].admin}
-                        sx={{ 
-                          width: 100, 
-                          height: 100, 
-                          border: '4px solid #CD7F32',
-                          fontSize: '2.5rem',
-                          fontWeight: 700
-                        }}
-                      >
-                        {topThree[2].admin.charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Box sx={{ 
-                        position: 'absolute', 
-                        bottom: -8, 
-                        right: -8, 
-                        bgcolor: '#CD7F32', 
-                        borderRadius: '50%', 
-                        width: 36, 
-                        height: 36, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: '3px solid white'
-                      }}>
-                        <Typography variant="h6" fontWeight="bold" color="white">3</Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="h5" fontWeight="bold" sx={{ textTransform: 'capitalize', mb: 1 }}>
-                      {topThree[2].admin}
-                    </Typography>
-                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.9)', borderRadius: 2, py: 1, px: 2 }}>
-                      <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                        {topThree[2].count.toLocaleString()}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">contributions</Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              )}
-            </Box>
-
-            {/* Rest of leaderboard */}
-            {remainder.length > 0 && (
-              <Card>
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Rank</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Admin</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Contributions</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Badge</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {remainder.map((entry, idx) => {
-                        const rank = idx + 4;
-                        return (
-                          <TableRow 
-                            key={entry.admin}
-                            sx={{ 
-                              '&:hover': { bgcolor: 'action.hover' },
-                              transition: 'background-color 0.2s ease'
-                            }}
-                          >
-                            <TableCell>
-                              <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                                #{rank}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar
-                                  src={getProfileImage(entry.admin)}
-                                  alt={entry.admin}
-                                  sx={{ width: 40, height: 40 }}
-                                >
-                                  {entry.admin.charAt(0).toUpperCase()}
-                                </Avatar>
-                                <Typography variant="body1" fontWeight={500} sx={{ textTransform: 'capitalize' }}>
-                                  {entry.admin}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="h6" fontWeight="bold">
-                                {entry.count.toLocaleString()}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Box sx={{ 
-                                display: 'inline-flex', 
-                                bgcolor: 'primary.main', 
-                                color: 'white', 
-                                px: 2, 
-                                py: 0.5, 
-                                borderRadius: 2,
-                                fontSize: '0.75rem',
-                                fontWeight: 600
-                              }}>
-                                Contributor
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Card>
-            )}
-          </Stack>
-        )}
-      </Stack>
-    </Box>
+function LeaderboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        {[2, 1, 3].map((rank) => (
+          <Card
+            key={rank}
+            className={cn(rank !== 1 && "md:translate-y-3")}
+          >
+            <CardContent className="pt-7 pb-6 flex flex-col items-center gap-3">
+              <Skeleton
+                className={rank === 1 ? "size-24 rounded-full" : "size-20 rounded-full"}
+              />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <CardContent className="space-y-3 pt-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-10" />
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

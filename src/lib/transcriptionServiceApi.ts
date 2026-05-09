@@ -8,6 +8,8 @@ const transcriptionApi = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+export const TRANSCRIPTION_API_BASE = TRANSCRIPTION_API_BASE_URL;
+
 export interface AudioTask {
   audio_id: string;
   audio_filename: string;
@@ -18,7 +20,7 @@ export interface AudioTask {
 }
 
 export type SpeakerGender = "male" | "female" | "cannot_recognized";
-export type AdminName = "chirath" | "rusira" | "kokila" | "sahan";
+export type AdminNameApi = "chirath" | "rusira" | "kokila" | "sahan";
 
 export interface TranscriptionSubmissionPayload {
   audio_id: string;
@@ -28,18 +30,9 @@ export interface TranscriptionSubmissionPayload {
   is_code_mixed: boolean;
   is_speaker_overlappings_exist: boolean;
   is_audio_suitable: boolean;
-  admin?: AdminName | null;
+  admin?: AdminNameApi | null;
   validated_at?: string | null;
   is_best_google?: boolean | null;
-}
-
-export interface ValidationSubmissionPayload {
-  transcription: string;
-  speaker_gender: SpeakerGender;
-  has_noise: boolean;
-  is_code_mixed: boolean;
-  is_speaker_overlappings_exist: boolean;
-  is_audio_suitable: boolean;
 }
 
 export interface TranscriptionRecord {
@@ -51,24 +44,11 @@ export interface TranscriptionRecord {
   is_code_mixed: boolean | null;
   is_speaker_overlappings_exist: boolean | null;
   is_audio_suitable: boolean | null;
-  admin: AdminName | null;
+  admin: AdminNameApi | null;
   validated_at: string | null;
   created_at: string | null;
   is_best_google?: boolean | null;
 }
-
-export interface ValidationQueueItem {
-  audio: AudioTask;
-  transcription: TranscriptionRecord;
-}
-
-export interface ValidationStats {
-  total: number;
-  pending: number;
-  completed: number;
-}
-
-// ---- YouTube Video Validation Types ----
 
 export interface VideoAudioClip {
   audio_id: string;
@@ -120,35 +100,13 @@ export const transcriptionServiceApi = {
     const { data } = await transcriptionApi.get<AudioTask>("/audio/random");
     return data;
   },
-
   async submitTranscription(payload: TranscriptionSubmissionPayload) {
-    const { data } = await transcriptionApi.post("/transcription", payload);
-    return data as TranscriptionRecord;
-  },
-
-  async getNextValidationItem() {
-    const { data } =
-      await transcriptionApi.get<ValidationQueueItem>("/validation/next");
-    return data;
-  },
-
-  async submitValidation(
-    transcriptionId: string,
-    payload: ValidationSubmissionPayload,
-  ) {
-    const { data } = await transcriptionApi.put<TranscriptionRecord>(
-      `/validation/${transcriptionId}`,
+    const { data } = await transcriptionApi.post(
+      "/transcription",
       payload,
     );
-    return data;
+    return data as TranscriptionRecord;
   },
-
-  async getValidationStats() {
-    const { data } =
-      await transcriptionApi.get<ValidationStats>("/validation/stats");
-    return data;
-  },
-
   async fetchLeaderboard(range: LeaderboardRange = "all") {
     const { data } = await axios.get<AdminLeaderboardResponse>(
       `${TRANSCRIPTION_API_BASE_URL}/admin/leaderboard`,
@@ -156,14 +114,12 @@ export const transcriptionServiceApi = {
     );
     return data;
   },
-
   async getNextYouTubeVideoForValidation() {
     const { data } = await transcriptionApi.get<YouTubeVideoValidationItem>(
       "/validation/youtube-video/next",
     );
     return data;
   },
-
   async submitVideoValidationStatus(videoId: string, isValidated: boolean) {
     const { data } = await transcriptionApi.post<VideoValidationResponse>(
       `/validation/youtube-video/${videoId}/validation-status`,
