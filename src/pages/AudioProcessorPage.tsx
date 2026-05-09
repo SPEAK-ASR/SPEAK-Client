@@ -1,219 +1,190 @@
 import { useState } from "react";
-import { Typography, Box } from "@mui/material";
-import { YoutubeUrlInput } from "../components/YoutubeUrlInput";
-import { AudioClipsDisplay } from "../components/AudioClipsDisplay";
-import { TranscriptionView } from "../components/TranscriptionView";
-import { ProgressIndicator } from "../components/ProgressIndicator";
-import { CompletionView } from "../components/CompletionView";
-import { LoadingState } from "../components/LoadingState";
-import type { ClipData, TranscribedClip, VideoMetadata } from "../lib/api";
+import { AnimatePresence, motion } from "framer-motion";
+import { PageHeader } from "../components/layout/PageHeader";
+import type {
+  ClipData,
+  TranscribedClip,
+  VideoMetadata,
+} from "../lib/api";
+import { fadeUp } from "../lib/motion";
+import { ClipsPanel } from "./audio-processor/ClipsPanel";
+import { CompletionPanel } from "./audio-processor/CompletionPanel";
+import { LoadingPanel } from "./audio-processor/LoadingPanel";
+import { ProgressStepper } from "./audio-processor/ProgressStepper";
+import { TranscriptionsPanel } from "./audio-processor/TranscriptionsPanel";
+import { UrlForm } from "./audio-processor/UrlForm";
 
 export type ProcessingStep =
-    | "input"
-    | "processing"
-    | "clips"
-    | "transcription"
-    | "storage"
-    | "complete";
+  | "input"
+  | "processing"
+  | "clips"
+  | "transcription"
+  | "storage"
+  | "complete";
 
 export function AudioProcessorPage() {
-    const [currentStep, setCurrentStep] = useState<ProcessingStep>("input");
-    const [videoId, setVideoId] = useState<string>("");
-    const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(
-        null,
-    );
-    const [clips, setClips] = useState<ClipData[]>([]);
-    const [transcriptions, setTranscriptions] = useState<TranscribedClip[]>([]);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isTranscribing, setIsTranscribing] = useState(false);
-    const [isSavingToCloud, setIsSavingToCloud] = useState(false);
-    const [processingError, setProcessingError] = useState<string | null>(null);
+  const [step, setStep] = useState<ProcessingStep>("input");
+  const [videoId, setVideoId] = useState("");
+  const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
+  const [clips, setClips] = useState<ClipData[]>([]);
+  const [transcriptions, setTranscriptions] = useState<TranscribedClip[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const handleYoutubeSubmit = () => {
-        setCurrentStep("processing");
-        setIsProcessing(true);
-        setProcessingError(null);
-    };
+  const handleSubmit = () => {
+    setStep("processing");
+    setBusy(true);
+    setError(null);
+  };
 
-    const handleClipsGenerated = (
-        videoId: string,
-        metadata: VideoMetadata,
-        clipsData: ClipData[],
-    ) => {
-        setVideoId(videoId);
-        setVideoMetadata(metadata);
-        setClips(clipsData);
-        setCurrentStep("clips");
-        setIsProcessing(false);
-        setProcessingError(null);
-    };
+  const handleClipsGenerated = (
+    id: string,
+    md: VideoMetadata,
+    cs: ClipData[],
+  ) => {
+    setVideoId(id);
+    setMetadata(md);
+    setClips(cs);
+    setStep("clips");
+    setBusy(false);
+    setError(null);
+  };
 
-    const handleTranscriptionComplete = (
-        transcribedClips: TranscribedClip[],
-    ) => {
-        setTranscriptions(transcribedClips);
-        setIsTranscribing(false);
-        if (transcribedClips.length === 0) {
-            // If no transcriptions, stay on clips stage
-            setCurrentStep("clips");
-        }
-    };
+  const handleSubmitError = (msg: string) => {
+    setStep("input");
+    setBusy(false);
+    setError(msg);
+  };
 
-    const handleTranscriptionStart = () => {
-        setCurrentStep("transcription");
-        setIsTranscribing(true);
-        setTranscriptions([]);
-    };
+  const handleTranscribeStart = () => {
+    setStep("transcription");
+    setBusy(true);
+  };
 
-    const handleCleanupComplete = (deletedFiles: string[]) => {
-        // Remove deleted clips from both transcriptions and clips state
-        setTranscriptions((prev) =>
-            prev.filter((t) => !deletedFiles.includes(t.clip_name)),
-        );
-        setClips((prev) =>
-            prev.filter((c) => !deletedFiles.includes(c.clip_name)),
-        );
-    };
+  const handleTranscribeDone = (cs: TranscribedClip[]) => {
+    setTranscriptions(cs);
+    setBusy(false);
+    if (cs.length === 0) {
+      setStep("clips");
+    }
+  };
 
-    const handleStorageStart = () => {
-        setCurrentStep("storage");
-        setIsSavingToCloud(true);
-    };
+  const handleCleanupComplete = (deletedFiles: string[]) => {
+    const deleted = new Set(deletedFiles);
+    setTranscriptions((p) => p.filter((t) => !deleted.has(t.clip_name)));
+    setClips((p) => p.filter((c) => !deleted.has(c.clip_name)));
+  };
 
-    const handleStorageComplete = () => {
-        setIsSavingToCloud(false);
-        setCurrentStep("complete");
-    };
+  const handleSaveStart = () => {
+    setStep("storage");
+    setBusy(true);
+  };
 
-    const handleReset = () => {
-        setCurrentStep("input");
-        setVideoId("");
-        setVideoMetadata(null);
-        setClips([]);
-        setTranscriptions([]);
-        setIsProcessing(false);
-        setIsTranscribing(false);
-        setIsSavingToCloud(false);
-        setProcessingError(null);
-    };
+  const handleSaveDone = () => {
+    setBusy(false);
+    setStep("complete");
+  };
 
-    const handleProcessingError = (errorMessage: string) => {
-        setCurrentStep("input");
-        setIsProcessing(false);
-        setProcessingError(errorMessage);
-    };
+  const handleReset = () => {
+    setStep("input");
+    setVideoId("");
+    setMetadata(null);
+    setClips([]);
+    setTranscriptions([]);
+    setBusy(false);
+    setError(null);
+  };
 
-    return (
-        <Box sx={{ minHeight: "100vh" }}>
-            <Box sx={{ p: 1.5 }}>
-                <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-                    <Box sx={{ textAlign: "center", mb: 2, mt: 0.5 }}>
-                        <Typography
-                            variant="h3"
-                            component="h1"
-                            fontWeight="bold"
-                            sx={{ mb: 0.5 }}
-                        >
-                            Audio Processor
-                        </Typography>
-                        <Typography
-                            variant="body1"
-                            color="text.secondary"
-                            sx={{
-                                "& .highlight": {
-                                    color: "primary.main",
-                                    fontWeight: 500,
-                                },
-                            }}
-                        >
-                            Process YouTube videos into audio clips with{" "}
-                            <Typography component="span" className="highlight">
-                                transcription
-                            </Typography>{" "}
-                            and{" "}
-                            <Typography component="span" className="highlight">
-                                cloud storage
-                            </Typography>
-                        </Typography>
-                    </Box>
-                    <ProgressIndicator
-                        currentStep={currentStep}
-                        isProcessing={isProcessing}
-                    />
+  return (
+    <>
+      <PageHeader
+        eyebrow="Pipeline"
+        title="Audio Processor"
+        description="Ingest a YouTube video, split it into clips, transcribe, and persist."
+      />
 
-                    <Box sx={{ mt: 2 }}>
-                        {currentStep === "input" && (
-                            <YoutubeUrlInput
-                                onSubmit={handleYoutubeSubmit}
-                                onClipsGenerated={handleClipsGenerated}
-                                onError={handleProcessingError}
-                                initialError={processingError}
-                            />
-                        )}
+      <ProgressStepper currentStep={step} isProcessing={busy} />
 
-                        {currentStep === "processing" && (
-                            <LoadingState
-                                title="Processing YouTube video..."
-                                description="This may take a few minutes depending on video length"
-                            />
-                        )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={renderKey(step, busy, transcriptions.length)}
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          exit="exit"
+        >
+          {step === "input" && (
+            <UrlForm
+              onSubmit={handleSubmit}
+              onClipsGenerated={handleClipsGenerated}
+              onError={handleSubmitError}
+              initialError={error}
+            />
+          )}
 
-                        {(currentStep === "clips" ||
-                            currentStep === "transcription" ||
-                            currentStep === "storage" ||
-                            currentStep === "complete") && (
-                            <AudioClipsDisplay
-                                videoId={videoId}
-                                clips={clips}
-                                videoMetadata={videoMetadata}
-                                onTranscriptionComplete={
-                                    handleTranscriptionComplete
-                                }
-                                onTranscriptionStart={handleTranscriptionStart}
-                                onStorageStart={handleStorageStart}
-                                onStorageComplete={handleStorageComplete}
-                                onRevert={handleReset}
-                                currentStep={currentStep}
-                                isTranscribing={isTranscribing}
-                            />
-                        )}
+          {step === "processing" && busy && (
+            <LoadingPanel
+              title="Splitting audio…"
+              description="This may take a few minutes depending on video length."
+            />
+          )}
 
-                        {currentStep === "complete" && (
-                            <CompletionView
-                                totalClips={clips.length}
-                                transcriptionCount={transcriptions.length}
-                                onReset={handleReset}
-                            />
-                        )}
+          {step === "clips" && (
+            <ClipsPanel
+              videoId={videoId}
+              metadata={metadata}
+              clips={clips}
+              hasTranscriptions={transcriptions.length > 0}
+              onTranscribeStart={handleTranscribeStart}
+              onTranscribeDone={handleTranscribeDone}
+              onSaveStart={handleSaveStart}
+              onSaveDone={handleSaveDone}
+              onReset={handleReset}
+            />
+          )}
 
-                        {currentStep === "transcription" && isTranscribing && (
-                            <LoadingState
-                                title="Transcribing audio clips..."
-                                description="This may take a few minutes depending on the number of clips"
-                            />
-                        )}
+          {step === "transcription" && busy && (
+            <LoadingPanel
+              title="Transcribing audio clips…"
+              description="This may take a few minutes."
+            />
+          )}
 
-                        {currentStep === "transcription" &&
-                            !isTranscribing &&
-                            transcriptions.length > 0 && (
-                                <TranscriptionView
-                                    transcriptions={transcriptions}
-                                    videoMetadata={videoMetadata}
-                                    videoId={videoId}
-                                    onCleanupComplete={handleCleanupComplete}
-                                    onRevert={handleReset}
-                                />
-                            )}
+          {step === "transcription" && !busy && transcriptions.length > 0 && (
+            <TranscriptionsPanel
+              videoId={videoId}
+              metadata={metadata}
+              transcriptions={transcriptions}
+              onCleanupComplete={handleCleanupComplete}
+              onSaveStart={handleSaveStart}
+              onSaveDone={handleSaveDone}
+              onReset={handleReset}
+            />
+          )}
 
-                        {currentStep === "storage" && isSavingToCloud && (
-                            <LoadingState
-                                title="Saving to cloud storage..."
-                                description="Uploading audio clips and updating database"
-                            />
-                        )}
-                    </Box>
-                </Box>
-            </Box>
-        </Box>
-    );
+          {step === "storage" && busy && (
+            <LoadingPanel
+              title="Saving to cloud storage…"
+              description="Uploading audio clips and updating the database."
+            />
+          )}
+
+          {step === "complete" && (
+            <CompletionPanel
+              totalClips={clips.length}
+              transcriptionCount={transcriptions.length}
+              onReset={handleReset}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </>
+  );
+}
+
+function renderKey(step: ProcessingStep, busy: boolean, transcribedCount: number) {
+  if (step === "transcription" && !busy && transcribedCount > 0) {
+    return "transcription-list";
+  }
+  return `${step}-${busy ? "loading" : "idle"}`;
 }

@@ -1,14 +1,9 @@
-// Transcription components barrel export
-export { TranscriptionEditor } from "./TranscriptionEditor";
+export { ActionBar } from "./ActionBar";
+export { AudioCard } from "./AudioCard";
 export {
-  AudioCard,
-  ReferenceCard,
-  GuidelinesCard,
-  EmptyQueueCard,
-} from "./AudioCards";
-export {
-  ActionButtons,
-  UnsuitableDialog,
   PointCelebrationDialog,
-  NotificationSnackbar,
-} from "./FormActions";
+  UnsuitableDialog,
+} from "./Dialogs";
+export { GuidelinesCard } from "./GuidelinesCard";
+export { ReferenceCard } from "./ReferenceCard";
+export { TranscriptionEditor } from "./TranscriptionEditor";

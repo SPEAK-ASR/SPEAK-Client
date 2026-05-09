@@ -1,523 +1,346 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import {
-    Box,
-    Typography,
-    Button,
-    Paper,
-    Chip,
-    LinearProgress,
-} from "@mui/material";
-import {
-    PlayArrow,
-    Stop,
-    Queue as QueueIcon,
-    CheckCircle,
-    Error as ErrorIcon,
-} from "@mui/icons-material";
-import {
-    VideoQueueInput,
-    BatchSettings,
-    VideoQueueTable,
-} from "../components/queue";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PageHeader } from "../components/layout/PageHeader";
 import { audioApi } from "../lib/api";
 import type { PlaylistVideo } from "../lib/api";
+import { toast } from "../components/ui/toast";
 import {
-    DEFAULT_VIDEO_SETTINGS,
-    STAGE_PROGRESS,
-    CONCURRENT_VIDEO_LIMIT,
+  CONCURRENT_VIDEO_LIMIT,
+  DEFAULT_VIDEO_SETTINGS,
+  STAGE_PROGRESS,
+  type QueueVideo,
+  type VideoSettings,
 } from "../types/queue";
-import type { QueueVideo, VideoSettings } from "../types/queue";
+import { BatchSettingsCard } from "./queue-processor/BatchSettingsCard";
+import { QueueInputCard } from "./queue-processor/QueueInputCard";
+import { QueueTable } from "./queue-processor/QueueTable";
+import { RunControlBar } from "./queue-processor/RunControlBar";
 
-// Generate unique ID
 const generateId = () =>
-    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
-// Extract video ID from YouTube URL
 const extractVideoId = (url: string): string | null => {
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-        /youtube\.com\/embed\/([^&\n?#]+)/,
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1];
-    }
-    return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
 };
 
 export function QueueProcessorPage() {
-    const [queue, setQueue] = useState<QueueVideo[]>([]);
-    const [defaultSettings, setDefaultSettings] = useState<VideoSettings>(
-        DEFAULT_VIDEO_SETTINGS,
-    );
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
-    const abortRef = useRef(false);
-    // Track IDs of videos currently being processed (for concurrent processing)
-    const activeVideoIdsRef = useRef<Set<string>>(new Set());
+  const [queue, setQueue] = useState<QueueVideo[]>([]);
+  const [defaultSettings, setDefaultSettings] = useState<VideoSettings>(
+    DEFAULT_VIDEO_SETTINGS,
+  );
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
+  const abortRef = useRef(false);
+  const activeIdsRef = useRef<Set<string>>(new Set());
 
-    // Count videos by status
-    const statusCounts = queue.reduce(
-        (acc, v) => {
-            if (v.status === "complete") acc.complete++;
-            else if (v.status === "error") acc.error++;
-            else if (v.status !== "pending") acc.processing++;
-            else acc.pending++;
-            return acc;
-        },
-        { pending: 0, processing: 0, complete: 0, error: 0 },
-    );
+  const counts = queue.reduce(
+    (acc, v) => {
+      if (v.status === "complete") acc.complete++;
+      else if (v.status === "error") acc.error++;
+      else if (v.status !== "pending") acc.processing++;
+      else acc.pending++;
+      return acc;
+    },
+    { pending: 0, processing: 0, complete: 0, error: 0 },
+  );
 
-    // Add single URL to queue
-    const handleAddUrl = useCallback(
-        (url: string) => {
-            const videoId = extractVideoId(url);
-            const newVideo: QueueVideo = {
-                id: generateId(),
-                url,
-                title: videoId ? `Video ${videoId}` : "Unknown Video",
-                status: "pending",
-                progress: 0,
-                settings: { ...defaultSettings },
-            };
-            setQueue((prev) => [...prev, newVideo]);
-        },
-        [defaultSettings],
-    );
+  const handleAddUrl = useCallback(
+    (url: string) => {
+      const vid = extractVideoId(url);
+      const newVideo: QueueVideo = {
+        id: generateId(),
+        url,
+        title: vid ? `Video ${vid}` : "Unknown video",
+        status: "pending",
+        progress: 0,
+        settings: { ...defaultSettings },
+      };
+      setQueue((prev) => [...prev, newVideo]);
+    },
+    [defaultSettings],
+  );
 
-    // Load videos from playlist
-    const handleLoadPlaylist = useCallback(
-        async (playlistUrl: string, limit?: number) => {
-            setIsLoadingPlaylist(true);
-            try {
-                const response = await audioApi.getPlaylistVideos(
-                    playlistUrl,
-                    limit,
-                );
-                if (response.success && response.videos.length > 0) {
-                    const newVideos: QueueVideo[] = response.videos.map(
-                        (video: PlaylistVideo) => ({
-                            id: generateId(),
-                            url: video.url,
-                            videoId: video.video_id,
-                            title: video.title,
-                            thumbnail: video.thumbnail,
-                            duration: video.duration,
-                            status: "pending" as const,
-                            progress: 0,
-                            settings: { ...defaultSettings },
-                        }),
-                    );
-                    setQueue((prev) => [...prev, ...newVideos]);
-                }
-            } finally {
-                setIsLoadingPlaylist(false);
-            }
-        },
-        [defaultSettings],
-    );
-
-    // Load videos from JSON file
-    const handleLoadJson = useCallback(
-        (videos: Array<{ video_link: string; domain: string }>) => {
-            // Get existing video URLs to avoid duplicates
-            const existingUrls = new Set(queue.map((v) => v.url));
-
-            const newVideos: QueueVideo[] = videos
-                .filter((v) => !existingUrls.has(v.video_link))
-                .map((video) => {
-                    const videoId = extractVideoId(video.video_link);
-                    return {
-                        id: generateId(),
-                        url: video.video_link,
-                        title: videoId ? `Video ${videoId}` : "Unknown Video",
-                        status: "pending" as const,
-                        progress: 0,
-                        settings: {
-                            ...defaultSettings,
-                            domain: video.domain,
-                        },
-                    };
-                });
-
-            if (newVideos.length > 0) {
-                setQueue((prev) => [...prev, ...newVideos]);
-            }
-        },
-        [defaultSettings, queue],
-    );
-
-    // Remove video from queue
-    const handleRemove = useCallback((id: string) => {
-        setQueue((prev) => prev.filter((v) => v.id !== id));
-    }, []);
-
-    // Update video settings
-    const handleUpdateSettings = useCallback(
-        (id: string, settings: VideoSettings) => {
-            setQueue((prev) =>
-                prev.map((v) => (v.id === id ? { ...v, settings } : v)),
-            );
-        },
-        [],
-    );
-
-    // Update video state helper
-    const updateVideo = useCallback(
-        (id: string, updates: Partial<QueueVideo>) => {
-            setQueue((prev) =>
-                prev.map((v) => (v.id === id ? { ...v, ...updates } : v)),
-            );
-        },
-        [],
-    );
-
-    // Process a single video through all stages sequentially
-    const processVideoSequentially = useCallback(
-        async (video: QueueVideo) => {
-            const { id, url, settings } = video;
-
-            try {
-                // Stage 1: Split Audio (download and split)
-                updateVideo(id, {
-                    status: "splitting",
-                    progress: STAGE_PROGRESS.splitting,
-                });
-
-                const splitResult = await audioApi.splitAudio(
-                    url,
-                    settings.domain,
-                    settings.vadThreshold,
-                    settings.startPadding,
-                    settings.endPadding,
-                );
-
-                if (!splitResult.success || abortRef.current) {
-                    throw new Error("Failed to split audio");
-                }
-
-                const videoId = splitResult.video_id;
-
-                // Update video with metadata
-                updateVideo(id, {
-                    videoId: videoId,
-                    title: splitResult.video_metadata.title,
-                    thumbnail: splitResult.video_metadata.thumbnail,
-                    clipCount: splitResult.total_clips,
-                    status: "transcribing",
-                    progress: STAGE_PROGRESS.transcribing,
-                });
-
-                if (abortRef.current) throw new Error("Processing cancelled");
-
-                // Stage 2: Transcribe clips
-                const transcribeResult =
-                    await audioApi.transcribeClips(videoId);
-
-                if (!transcribeResult.success || abortRef.current) {
-                    throw new Error("Failed to transcribe clips");
-                }
-
-                // Stage 3: Clean null transcriptions (if enabled)
-                if (settings.autoCleanNullTranscriptions) {
-                    updateVideo(id, {
-                        status: "cleaning",
-                        progress: STAGE_PROGRESS.cleaning,
-                    });
-
-                    if (abortRef.current)
-                        throw new Error("Processing cancelled");
-
-                    await audioApi.cleanNullTranscriptions(videoId);
-                }
-
-                if (abortRef.current) throw new Error("Processing cancelled");
-
-                // Stage 4: Save to cloud
-                updateVideo(id, {
-                    status: "saving",
-                    progress: STAGE_PROGRESS.saving,
-                });
-
-                const saveResult = await audioApi.saveToCloud(videoId);
-
-                if (!saveResult.success) {
-                    throw new Error("Failed to save to cloud");
-                }
-
-                // Complete!
-                updateVideo(id, {
-                    status: "complete",
-                    progress: STAGE_PROGRESS.complete,
-                    savedCount: saveResult.total_processed,
-                });
-
-                return true;
-            } catch (err) {
-                const errorMessage =
-                    err instanceof Error ? err.message : "Unknown error";
-                updateVideo(id, {
-                    status: "error",
-                    progress: 0,
-                    error: errorMessage,
-                });
-                return false;
-            }
-        },
-        [updateVideo],
-    );
-
-    // Process a single video and remove from active set when done
-    const processVideoWithTracking = useCallback(
-        async (video: QueueVideo) => {
-            activeVideoIdsRef.current.add(video.id);
-            try {
-                await processVideoSequentially(video);
-            } finally {
-                activeVideoIdsRef.current.delete(video.id);
-            }
-        },
-        [processVideoSequentially],
-    );
-
-    // Start processing pending videos up to the concurrency limit
-    const fillProcessingSlots = useCallback(() => {
-        if (abortRef.current) return;
-
-        // Get current active count
-        const activeCount = activeVideoIdsRef.current.size;
-        const availableSlots = CONCURRENT_VIDEO_LIMIT - activeCount;
-
-        if (availableSlots <= 0) return;
-
-        // Find pending videos that aren't already being processed
-        const pendingVideos = queue.filter(
-            (v) =>
-                v.status === "pending" && !activeVideoIdsRef.current.has(v.id),
-        );
-
-        // Start processing videos up to available slots
-        const videosToStart = pendingVideos.slice(0, availableSlots);
-
-        videosToStart.forEach((video) => {
-            // Fire and forget - each video processes independently
-            processVideoWithTracking(video);
+  const handleLoadPlaylist = useCallback(
+    async (url: string, limit?: number) => {
+      setIsLoadingPlaylist(true);
+      try {
+        const res = await audioApi.getPlaylistVideos(url, limit);
+        if (res.success && res.videos.length > 0) {
+          const newVideos: QueueVideo[] = res.videos.map((v: PlaylistVideo) => ({
+            id: generateId(),
+            url: v.url,
+            videoId: v.video_id,
+            title: v.title,
+            thumbnail: v.thumbnail,
+            duration: v.duration,
+            status: "pending" as const,
+            progress: 0,
+            settings: { ...defaultSettings },
+          }));
+          setQueue((prev) => [...prev, ...newVideos]);
+          toast.success(`Loaded ${newVideos.length} videos from playlist`);
+        } else {
+          toast.info("No videos found in playlist");
+        }
+      } catch (err) {
+        toast.error("Could not load playlist", {
+          description: (err as Error)?.message,
         });
-    }, [queue, processVideoWithTracking]);
+        throw err;
+      } finally {
+        setIsLoadingPlaylist(false);
+      }
+    },
+    [defaultSettings],
+  );
 
-    // Retry a failed video
-    const handleRetry = useCallback((id: string) => {
-        setQueue((prev) =>
-            prev.map((v) =>
-                v.id === id
-                    ? {
-                          ...v,
-                          status: "pending" as const,
-                          progress: 0,
-                          error: undefined,
-                      }
-                    : v,
-            ),
-        );
-    }, []);
-
-    // Start/stop processing
-    const handleStartProcessing = useCallback(() => {
-        // Check if category is selected
-        if (!defaultSettings.domain) {
-            alert(
-                "Please select a video category before starting the process.",
-            );
-            return;
+  const handleLoadJson = useCallback(
+    (videos: Array<{ video_link: string; domain: string }>) => {
+      setQueue((prev) => {
+        const existing = new Set(prev.map((v) => v.url));
+        const incoming: QueueVideo[] = videos
+          .filter((v) => !existing.has(v.video_link))
+          .map((v) => {
+            const vid = extractVideoId(v.video_link);
+            return {
+              id: generateId(),
+              url: v.video_link,
+              title: vid ? `Video ${vid}` : "Unknown video",
+              status: "pending" as const,
+              progress: 0,
+              settings: {
+                ...defaultSettings,
+                domain: v.domain || defaultSettings.domain,
+              },
+            };
+          });
+        if (incoming.length > 0) {
+          toast.success(`Imported ${incoming.length} videos from JSON`);
         }
-        abortRef.current = false;
-        setIsProcessing(true);
-    }, [defaultSettings.domain]);
+        return [...prev, ...incoming];
+      });
+    },
+    [defaultSettings],
+  );
 
-    const handleStopProcessing = useCallback(() => {
-        abortRef.current = true;
-        setIsProcessing(false);
-    }, []);
+  const handleRemove = useCallback((id: string) => {
+    setQueue((prev) => prev.filter((v) => v.id !== id));
+  }, []);
 
-    // Concurrent queue processor - fills available slots when processing is active
-    useEffect(() => {
-        if (!isProcessing) return;
+  const handleUpdateSettings = useCallback(
+    (id: string, settings: VideoSettings) => {
+      setQueue((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, settings } : v)),
+      );
+    },
+    [],
+  );
 
-        fillProcessingSlots();
-    }, [isProcessing, queue, fillProcessingSlots]);
+  const handleRetry = useCallback((id: string) => {
+    setQueue((prev) =>
+      prev.map((v) =>
+        v.id === id
+          ? { ...v, status: "pending" as const, progress: 0, error: undefined }
+          : v,
+      ),
+    );
+  }, []);
 
-    // Auto-stop when all videos are done
-    useEffect(() => {
-        if (!isProcessing) return;
+  const updateVideo = useCallback(
+    (id: string, updates: Partial<QueueVideo>) =>
+      setQueue((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, ...updates } : v)),
+      ),
+    [],
+  );
 
-        const allDone = queue.every(
-            (v) => v.status === "complete" || v.status === "error",
-        );
-
-        if (allDone && queue.length > 0) {
-            setIsProcessing(false);
+  const processOne = useCallback(
+    async (video: QueueVideo) => {
+      const { id, url, settings } = video;
+      try {
+        if (!settings.domain) {
+          throw new Error("Missing category");
         }
-    }, [isProcessing, queue]);
+        updateVideo(id, {
+          status: "splitting",
+          progress: STAGE_PROGRESS.splitting,
+        });
+        const split = await audioApi.splitAudio(
+          url,
+          settings.domain,
+          settings.vadThreshold,
+          settings.startPadding,
+          settings.endPadding,
+        );
+        if (!split.success || abortRef.current)
+          throw new Error("Failed to split audio");
 
-    // Calculate overall progress
-    const overallProgress =
-        queue.length > 0
-            ? Math.round(
-                  queue.reduce((acc, v) => acc + v.progress, 0) / queue.length,
-              )
-            : 0;
+        const videoId = split.video_id;
+        updateVideo(id, {
+          videoId,
+          title: split.video_metadata.title,
+          thumbnail: split.video_metadata.thumbnail,
+          clipCount: split.total_clips,
+          status: "transcribing",
+          progress: STAGE_PROGRESS.transcribing,
+        });
+        if (abortRef.current) throw new Error("Cancelled");
 
-    const hasVideosToProcess = queue.some(
-        (v) => v.status === "pending" || v.status === "error",
+        const tx = await audioApi.transcribeClips(videoId);
+        if (!tx.success || abortRef.current)
+          throw new Error("Failed to transcribe clips");
+
+        if (settings.autoCleanNullTranscriptions) {
+          updateVideo(id, {
+            status: "cleaning",
+            progress: STAGE_PROGRESS.cleaning,
+          });
+          if (abortRef.current) throw new Error("Cancelled");
+          await audioApi.cleanNullTranscriptions(videoId);
+        }
+
+        if (abortRef.current) throw new Error("Cancelled");
+
+        updateVideo(id, {
+          status: "saving",
+          progress: STAGE_PROGRESS.saving,
+        });
+        const save = await audioApi.saveToCloud(videoId);
+        if (!save.success) throw new Error("Failed to save to cloud");
+
+        updateVideo(id, {
+          status: "complete",
+          progress: STAGE_PROGRESS.complete,
+          savedCount: save.total_processed,
+        });
+      } catch (err) {
+        updateVideo(id, {
+          status: "error",
+          progress: 0,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    },
+    [updateVideo],
+  );
+
+  const processWithTracking = useCallback(
+    async (video: QueueVideo) => {
+      activeIdsRef.current.add(video.id);
+      try {
+        await processOne(video);
+      } finally {
+        activeIdsRef.current.delete(video.id);
+      }
+    },
+    [processOne],
+  );
+
+  const fillSlots = useCallback(() => {
+    if (abortRef.current) return;
+    const active = activeIdsRef.current.size;
+    const slots = CONCURRENT_VIDEO_LIMIT - active;
+    if (slots <= 0) return;
+    const pending = queue.filter(
+      (v) => v.status === "pending" && !activeIdsRef.current.has(v.id),
     );
+    pending.slice(0, slots).forEach((v) => {
+      processWithTracking(v);
+    });
+  }, [queue, processWithTracking]);
 
-    return (
-        <Box sx={{ minHeight: "100vh", p: 2 }}>
-            <Box sx={{ maxWidth: 1400, mx: "auto" }}>
-                {/* Header */}
-                <Box sx={{ textAlign: "center", mb: 3 }}>
-                    <Typography
-                        variant="h3"
-                        component="h1"
-                        fontWeight="bold"
-                        sx={{
-                            mb: 0.5,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 1,
-                        }}
-                    >
-                        <QueueIcon sx={{ fontSize: 40 }} />
-                        Queue Processor
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Process multiple YouTube videos concurrently (up to{" "}
-                        {CONCURRENT_VIDEO_LIMIT} at a time)
-                    </Typography>
-                </Box>
+  const handleStart = () => {
+    if (!defaultSettings.domain && queue.some((v) => !v.settings.domain)) {
+      toast.error("Pick a category", {
+        description:
+          "Set the default batch category, or pick one for every video first.",
+      });
+      return;
+    }
+    abortRef.current = false;
+    setIsProcessing(true);
+  };
 
-                {/* Main layout */}
-                <Box
-                    sx={{
-                        display: "flex",
-                        gap: 3,
-                        flexDirection: { xs: "column", lg: "row" },
-                    }}
-                >
-                    {/* Left sidebar: Input & Settings */}
-                    <Box sx={{ width: { xs: "100%", lg: 400 }, flexShrink: 0 }}>
-                        <VideoQueueInput
-                            onAddUrl={handleAddUrl}
-                            onLoadPlaylist={handleLoadPlaylist}
-                            onLoadJson={handleLoadJson}
-                            isLoadingPlaylist={isLoadingPlaylist}
-                            disabled={isProcessing}
-                        />
-                        <BatchSettings
-                            settings={defaultSettings}
-                            onSettingsChange={setDefaultSettings}
-                            disabled={isProcessing}
-                        />
-                    </Box>
+  const handleStop = () => {
+    abortRef.current = true;
+    setIsProcessing(false);
+  };
 
-                    {/* Main content: Queue table */}
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        {/* Control bar */}
-                        <Paper
-                            elevation={2}
-                            sx={{
-                                p: 2,
-                                mb: 2,
-                                borderRadius: 2,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 2,
-                                flexWrap: "wrap",
-                            }}
-                        >
-                            <Button
-                                variant="contained"
-                                color={isProcessing ? "error" : "primary"}
-                                startIcon={
-                                    isProcessing ? <Stop /> : <PlayArrow />
-                                }
-                                onClick={
-                                    isProcessing
-                                        ? handleStopProcessing
-                                        : handleStartProcessing
-                                }
-                                disabled={!hasVideosToProcess && !isProcessing}
-                                sx={{ minWidth: 140 }}
-                            >
-                                {isProcessing ? "Stop" : "Start Processing"}
-                            </Button>
+  useEffect(() => {
+    if (!isProcessing) return;
+    fillSlots();
+  }, [isProcessing, queue, fillSlots]);
 
-                            <Box sx={{ flex: 1, minWidth: 200 }}>
-                                {isProcessing && (
-                                    <Box>
-                                        <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                        >
-                                            Overall Progress: {overallProgress}%
-                                        </Typography>
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={overallProgress}
-                                            sx={{ height: 6, borderRadius: 3 }}
-                                        />
-                                    </Box>
-                                )}
-                            </Box>
+  useEffect(() => {
+    if (!isProcessing) return;
+    const allDone =
+      queue.length > 0 &&
+      queue.every((v) => v.status === "complete" || v.status === "error");
+    if (allDone) {
+      setIsProcessing(false);
+      toast.success("Queue complete");
+    }
+  }, [isProcessing, queue]);
 
-                            {/* Status chips */}
-                            <Box sx={{ display: "flex", gap: 1 }}>
-                                {isProcessing && (
-                                    <Chip
-                                        size="small"
-                                        label={`${statusCounts.processing}/${CONCURRENT_VIDEO_LIMIT} slots`}
-                                        color="info"
-                                        variant="filled"
-                                    />
-                                )}
-                                <Chip
-                                    size="small"
-                                    label={`${statusCounts.pending} pending`}
-                                    variant="outlined"
-                                />
-                                <Chip
-                                    size="small"
-                                    icon={<CheckCircle sx={{ fontSize: 16 }} />}
-                                    label={`${statusCounts.complete} done`}
-                                    color="success"
-                                    variant="outlined"
-                                />
-                                {statusCounts.error > 0 && (
-                                    <Chip
-                                        size="small"
-                                        icon={
-                                            <ErrorIcon sx={{ fontSize: 16 }} />
-                                        }
-                                        label={`${statusCounts.error} failed`}
-                                        color="error"
-                                        variant="outlined"
-                                    />
-                                )}
-                            </Box>
-                        </Paper>
+  const overallProgress =
+    queue.length > 0
+      ? Math.round(
+          queue.reduce((acc, v) => acc + v.progress, 0) / queue.length,
+        )
+      : 0;
+  const hasVideosToProcess = queue.some(
+    (v) => v.status === "pending" || v.status === "error",
+  );
 
-                        {/* Queue table */}
-                        <VideoQueueTable
-                            videos={queue}
-                            onRemove={handleRemove}
-                            onRetry={handleRetry}
-                            onUpdateSettings={handleUpdateSettings}
-                            isProcessing={isProcessing}
-                        />
-                    </Box>
-                </Box>
-            </Box>
-        </Box>
-    );
+  return (
+    <>
+      <PageHeader
+        eyebrow="Pipeline"
+        title="Queue Processor"
+        description={`Process up to ${CONCURRENT_VIDEO_LIMIT} videos concurrently.`}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <QueueInputCard
+            onAddUrl={handleAddUrl}
+            onLoadPlaylist={handleLoadPlaylist}
+            onLoadJson={handleLoadJson}
+            isLoadingPlaylist={isLoadingPlaylist}
+            disabled={isProcessing}
+          />
+          <BatchSettingsCard
+            settings={defaultSettings}
+            onChange={setDefaultSettings}
+            disabled={isProcessing}
+          />
+        </div>
+
+        <div className="min-w-0">
+          <RunControlBar
+            isProcessing={isProcessing}
+            hasVideosToProcess={hasVideosToProcess}
+            overallProgress={overallProgress}
+            counts={counts}
+            onStart={handleStart}
+            onStop={handleStop}
+          />
+          <QueueTable
+            videos={queue}
+            onRemove={handleRemove}
+            onRetry={handleRetry}
+            onUpdateSettings={handleUpdateSettings}
+            isProcessing={isProcessing}
+          />
+        </div>
+      </div>
+    </>
+  );
 }

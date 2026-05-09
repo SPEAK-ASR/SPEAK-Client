@@ -1,39 +1,34 @@
-import React, {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  type ChangeEvent,
-  type KeyboardEvent,
-} from "react";
+import * as React from "react";
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Paper,
-  Stack,
+  Check,
+  Download,
+  Edit3,
+  Keyboard,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { PageHeader } from "../components/layout/PageHeader";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Switch } from "../components/ui/switch";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
+} from "../components/ui/table";
+import {
   Tooltip,
-  Typography,
-} from "@mui/material";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import DownloadIcon from "@mui/icons-material/Download";
-import EditIcon from "@mui/icons-material/Edit";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
-import KeyboardIcon from "@mui/icons-material/Keyboard";
-import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import "../styles/transcription.css";
-
-/* ─────────────────────────── types ─────────────────────────── */
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import { toast } from "../components/ui/toast";
+import { cn } from "../lib/utils";
 
 interface CsvRow {
   id: number;
@@ -47,25 +42,24 @@ interface DiffToken {
   type: "equal" | "added" | "removed";
 }
 
-/* ─────────────────────────── CSV helpers ────────────────────── */
-
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
-    if (line[i] === '"') {
+    const ch = line[i];
+    if (ch === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (line[i] === "," && !inQuotes) {
+    } else if (ch === "," && !inQuotes) {
       result.push(current);
       current = "";
     } else {
-      current += line[i];
+      current += ch;
     }
   }
   result.push(current);
@@ -99,10 +93,7 @@ function buildCsv(rows: CsvRow[]): string {
   return `${header}\n${body}`;
 }
 
-/* ─────────────────────────── word-level diff ────────────────── */
-
 function tokenise(text: string): string[] {
-  // keep Sinhala word boundaries; split on whitespace but preserve tokens
   return text.split(/(\s+)/).filter(Boolean);
 }
 
@@ -154,94 +145,72 @@ function computeDiff(
   return { left, right };
 }
 
-/* ─────────────────────────── DiffView ───────────────────────── */
-
 function DiffView({
   tokens,
-  maxLines = 2,
+  maxLines = 3,
 }: {
   tokens: DiffToken[];
   maxLines?: number;
 }) {
   return (
-    <Box
-      component="span"
-      sx={{
-        fontSize: "0.82rem",
-        lineHeight: 1.6,
+    <span
+      className="text-[0.82rem] leading-relaxed break-words"
+      style={{
         display: "-webkit-box",
         WebkitLineClamp: maxLines,
         WebkitBoxOrient: "vertical",
         overflow: "hidden",
-        wordBreak: "break-word",
       }}
     >
       {tokens.map((tok, idx) => {
         if (/^\s+$/.test(tok.text)) {
           return <span key={idx}>{tok.text}</span>;
         }
-        const bg =
-          tok.type === "removed"
-            ? "rgba(255,80,80,0.28)"
-            : tok.type === "added"
-              ? "rgba(80,200,120,0.28)"
-              : undefined;
-        const outline =
-          tok.type === "removed"
-            ? "1px solid rgba(255,80,80,0.5)"
-            : tok.type === "added"
-              ? "1px solid rgba(80,200,120,0.5)"
-              : undefined;
+        if (tok.type === "equal") {
+          return <span key={idx}>{tok.text}</span>;
+        }
         return (
-          <Box
+          <span
             key={idx}
-            component="span"
-            sx={{
-              background: bg,
-              outline,
-              borderRadius: "3px",
-              px: tok.type !== "equal" ? "1px" : undefined,
-            }}
+            className={cn(
+              "rounded px-0.5 mx-px ring-1",
+              tok.type === "removed"
+                ? "bg-destructive/25 ring-destructive/40 text-foreground"
+                : "bg-success/25 ring-success/40 text-foreground",
+            )}
           >
             {tok.text}
-          </Box>
+          </span>
         );
       })}
-    </Box>
+    </span>
   );
 }
 
-/* ─────────────────────────── global IME manager ─────────────── */
-
 interface ImeManager {
-  controllerRef: React.MutableRefObject<SinhalaImeController | null>;
-  imeDomRef: React.MutableRefObject<{
-    toggle: HTMLInputElement | null;
-    chip: HTMLButtonElement | null;
-  }>;
+  toggleRef: React.MutableRefObject<HTMLInputElement | null>;
+  chipRef: React.MutableRefObject<HTMLButtonElement | null>;
   imeEnabled: boolean;
   attachTo: (textarea: HTMLTextAreaElement) => void;
   detachCurrent: () => void;
 }
 
 function useImeManager(imeEnabled: boolean): ImeManager {
-  const controllerRef = useRef<SinhalaImeController | null>(null);
-  const imeDomRef = useRef<{
-    toggle: HTMLInputElement | null;
-    chip: HTMLButtonElement | null;
-  }>({ toggle: null, chip: null });
+  const toggleRef = React.useRef<HTMLInputElement | null>(null);
+  const chipRef = React.useRef<HTMLButtonElement | null>(null);
+  const controllerRef = React.useRef<SinhalaImeController | null>(null);
 
-  const detachCurrent = useCallback(() => {
+  const detachCurrent = React.useCallback(() => {
     controllerRef.current?.detach();
     controllerRef.current = null;
   }, []);
 
-  const attachTo = useCallback(
+  const attachTo = React.useCallback(
     (textarea: HTMLTextAreaElement) => {
       detachCurrent();
       const controller = window.SinPhoneticIME?.attach(textarea, {
-        toggle: imeDomRef.current.toggle ?? undefined,
-        chip: imeDomRef.current.chip ?? undefined,
+        toggle: toggleRef.current ?? undefined,
+        chip: chipRef.current ?? undefined,
       });
       if (controller) {
         try {
@@ -256,8 +225,7 @@ function useImeManager(imeEnabled: boolean): ImeManager {
     [detachCurrent, imeEnabled],
   );
 
-  // Update enabled state on existing controller when imeEnabled changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (controllerRef.current) {
       try {
         controllerRef.current.enabled = imeEnabled;
@@ -267,10 +235,8 @@ function useImeManager(imeEnabled: boolean): ImeManager {
     }
   }, [imeEnabled]);
 
-  return { controllerRef, imeDomRef, imeEnabled, attachTo, detachCurrent };
+  return { toggleRef, chipRef, imeEnabled, attachTo, detachCurrent };
 }
-
-/* ─────────────────────────── Row component ──────────────────── */
 
 interface RowProps {
   row: CsvRow;
@@ -291,39 +257,34 @@ const RowComponent = React.memo(function RowComponent({
   onCancel,
   imeManager,
 }: RowProps) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const wasEditingRef = useRef(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const wasEditingRef = React.useRef(false);
 
-  const diff = useMemo(
+  const diff = React.useMemo(
     () => computeDiff(row.text, row.tn_text),
     [row.text, row.tn_text],
   );
-
   const changed = diff.left.some((t) => t.type !== "equal");
 
-  // Only reset and attach IME when transitioning INTO edit mode, not on every re-render.
-  useEffect(() => {
-    const justStartedEditing = isEditing && !wasEditingRef.current;
+  React.useEffect(() => {
+    const justStarted = isEditing && !wasEditingRef.current;
     wasEditingRef.current = isEditing;
-    if (justStartedEditing && textareaRef.current) {
+    if (justStarted && textareaRef.current) {
       textareaRef.current.value = row.tn_text;
       textareaRef.current.focus();
       imeManager.attachTo(textareaRef.current);
     }
   }, [isEditing, imeManager, row.tn_text]);
 
-  // Always read the live DOM value — the IME may write directly to the textarea
-  // without firing React's synthetic onChange, so a ref or state would be stale.
-  const handleSave = useCallback(() => {
+  const handleSave = React.useCallback(() => {
     onSave(row.id, textareaRef.current?.value ?? "");
   }, [onSave, row.id]);
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Escape") {
         onCancel(row.id);
       }
-      // Ctrl+Enter to save
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         handleSave();
@@ -334,67 +295,37 @@ const RowComponent = React.memo(function RowComponent({
 
   return (
     <TableRow
-      hover
-      sx={{
-        verticalAlign: "top",
-        bgcolor: row.reviewed
-          ? "rgba(80,200,120,0.06)"
+      className={cn(
+        "align-top border-b border-border",
+        row.reviewed
+          ? "bg-success/5"
           : changed
-            ? undefined
-            : "rgba(255,255,255,0.02)",
-        "&:hover": { bgcolor: "rgba(255,255,255,0.05)" },
-      }}
+            ? ""
+            : "bg-muted/20",
+      )}
     >
-      {/* Index */}
-      <TableCell
-        sx={{
-          width: 40,
-          py: 0.75,
-          px: 1,
-          color: "text.secondary",
-          fontSize: "0.75rem",
-          borderRight: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Stack alignItems="center" spacing={0.25}>
+      <TableCell className="w-12 align-top px-2 py-2 border-r border-border">
+        <div className="flex flex-col items-center gap-1 text-muted-foreground text-xs">
           <span>{index + 1}</span>
           {row.reviewed && (
-            <CheckIcon sx={{ fontSize: 12, color: "success.main" }} />
+            <Check className="size-3 text-success" aria-label="Reviewed" />
           )}
           {!changed && (
-            <Chip
-              label="="
-              size="small"
-              sx={{
-                height: 14,
-                fontSize: "0.6rem",
-                bgcolor: "rgba(255,255,255,0.08)",
-              }}
-            />
+            <span className="rounded-full bg-muted text-[10px] px-1.5">
+              =
+            </span>
           )}
-        </Stack>
+        </div>
       </TableCell>
 
-      {/* text column */}
-      <TableCell
-        sx={{
-          py: 0.75,
-          px: 1,
-          width: "43%",
-          borderRight: "1px solid",
-          borderColor: "divider",
-          verticalAlign: "top",
-        }}
-      >
+      <TableCell className="w-[42%] align-top px-3 py-2 border-r border-border">
         <DiffView tokens={diff.left} maxLines={3} />
       </TableCell>
 
-      {/* tn_text column */}
-      <TableCell sx={{ py: 0.75, px: 1, verticalAlign: "top" }}>
+      <TableCell className="align-top px-3 py-2">
         {isEditing ? (
-          <Stack spacing={0.5}>
-            <Box className="ime-container">
+          <div className="space-y-2">
+            <div className="ime-container relative">
               <textarea
                 ref={textareaRef}
                 defaultValue={row.tn_text}
@@ -405,129 +336,124 @@ const RowComponent = React.memo(function RowComponent({
                     imeManager.attachTo(textareaRef.current);
                   }
                 }}
-                style={{
-                  width: "100%",
-                  resize: "vertical",
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "1px solid #4F8EFF",
-                  backgroundColor: "#1F1F1F",
-                  color: "#FAFAFA",
-                  fontSize: "0.82rem",
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                }}
+                className="w-full resize-y rounded-md border border-primary bg-input px-2.5 py-1.5 text-[0.85rem] text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
-            </Box>
-            <Stack direction="row" spacing={0.5}>
+            </div>
+            <div className="flex gap-1.5">
               <Button
-                size="small"
-                variant="contained"
-                color="success"
+                size="sm"
+                variant="success"
                 onClick={handleSave}
-                startIcon={<CheckIcon />}
-                sx={{ py: 0.25, px: 1, fontSize: "0.72rem" }}
+                className="h-7 text-xs px-2.5"
               >
+                <Check className="size-3.5" />
                 Save (Ctrl+↵)
               </Button>
               <Button
-                size="small"
-                variant="outlined"
-                color="inherit"
+                size="sm"
+                variant="outline"
                 onClick={() => onCancel(row.id)}
-                startIcon={<CloseIcon />}
-                sx={{ py: 0.25, px: 1, fontSize: "0.72rem" }}
+                className="h-7 text-xs px-2.5"
               >
+                <X className="size-3.5" />
                 Cancel (Esc)
               </Button>
-            </Stack>
-          </Stack>
+            </div>
+          </div>
         ) : (
-          <Stack direction="row" alignItems="flex-start" spacing={0.5}>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
               <DiffView tokens={diff.right} maxLines={3} />
-            </Box>
-            <Tooltip title="Edit tn_text">
-              <IconButton
-                size="small"
-                onClick={() => onStartEdit(row.id)}
-                sx={{
-                  p: 0.25,
-                  opacity: 0.5,
-                  "&:hover": { opacity: 1 },
-                  flexShrink: 0,
-                }}
-              >
-                <EditIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+            </div>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => onStartEdit(row.id)}
+                    className="opacity-50 hover:opacity-100 shrink-0"
+                    aria-label="Edit normalized text"
+                  >
+                    <Edit3 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit tn_text</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         )}
       </TableCell>
     </TableRow>
   );
 });
 
-/* ─────────────────────────── main page ─────────────────────── */
-
 export function CsvNormalizationPage() {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const globalToggleRef = useRef<HTMLInputElement | null>(null);
-  const globalChipRef = useRef<HTMLButtonElement | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const globalChipRef = React.useRef<HTMLButtonElement | null>(null);
+  const hiddenToggleRef = React.useRef<HTMLInputElement | null>(null);
 
-  const [rows, setRows] = useState<CsvRow[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [imeEnabled, setImeEnabled] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filename, setFilename] = useState("output.csv");
+  const [rows, setRows] = React.useState<CsvRow[]>([]);
+  const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [imeEnabled, setImeEnabled] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [filename, setFilename] = React.useState("output.csv");
 
   const imeManager = useImeManager(imeEnabled);
 
-  // Wire the global toggle / chip refs into the manager so the chip floats on edit textarea
-  useEffect(() => {
-    imeManager.imeDomRef.current.toggle = globalToggleRef.current;
-    imeManager.imeDomRef.current.chip = globalChipRef.current;
+  React.useEffect(() => {
+    imeManager.toggleRef.current = hiddenToggleRef.current;
+    imeManager.chipRef.current = globalChipRef.current;
   });
 
-  /* ── CSV upload ── */
-  const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFilename(file.name.replace(/\.csv$/i, "_validated.csv"));
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const raw = evt.target?.result as string;
-        const parsed = parseCsv(raw);
-        if (parsed.length === 0) {
-          setError("No rows found. Make sure the file has a header row.");
-          return;
-        }
-        if (!("text" in parsed[0]) || !("tn_text" in parsed[0])) {
-          setError("CSV must have columns: text, tn_text");
-          return;
-        }
-        setError(null);
-        setEditingId(null);
-        setRows(
-          parsed.map((r, i) => ({
-            id: i,
-            text: r.text ?? "",
-            tn_text: r.tn_text ?? "",
-            reviewed: false,
-          })),
-        );
-      } catch {
-        setError("Failed to parse CSV file.");
-      }
-    };
-    reader.readAsText(file, "utf-8");
-    // reset so same file can be re-uploaded
-    e.target.value = "";
-  }, []);
+  React.useEffect(() => {
+    if (hiddenToggleRef.current) {
+      hiddenToggleRef.current.checked = imeEnabled;
+    }
+  }, [imeEnabled]);
 
-  /* ── CSV download ── */
-  const handleDownload = useCallback(() => {
+  const handleFileChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setFilename(file.name.replace(/\.csv$/i, "_validated.csv"));
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const raw = evt.target?.result as string;
+          const parsed = parseCsv(raw);
+          if (parsed.length === 0) {
+            setError("No rows found. Make sure the file has a header row.");
+            return;
+          }
+          if (!("text" in parsed[0]) || !("tn_text" in parsed[0])) {
+            setError("CSV must have columns: text, tn_text");
+            return;
+          }
+          setError(null);
+          setEditingId(null);
+          setRows(
+            parsed.map((r, i) => ({
+              id: i,
+              text: r.text ?? "",
+              tn_text: r.tn_text ?? "",
+              reviewed: false,
+            })),
+          );
+          toast.success("CSV loaded", {
+            description: `${parsed.length} rows ready for review`,
+          });
+        } catch {
+          setError("Failed to parse CSV file.");
+        }
+      };
+      reader.readAsText(file, "utf-8");
+      e.target.value = "";
+    },
+    [],
+  );
+
+  const handleDownload = React.useCallback(() => {
     const csv = buildCsv(rows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -536,14 +462,14 @@ export function CsvNormalizationPage() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success("CSV downloaded", { description: filename });
   }, [rows, filename]);
 
-  /* ── editing callbacks ── */
-  const handleStartEdit = useCallback((id: number) => {
+  const handleStartEdit = React.useCallback((id: number) => {
     setEditingId(id);
   }, []);
 
-  const handleSave = useCallback((id: number, newTnText: string) => {
+  const handleSave = React.useCallback((id: number, newTnText: string) => {
     setRows((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, tn_text: newTnText, reviewed: true } : r,
@@ -552,30 +478,22 @@ export function CsvNormalizationPage() {
     setEditingId(null);
   }, []);
 
-  const handleCancel = useCallback((_id: number) => {
+  const handleCancel = React.useCallback(() => {
     setEditingId(null);
   }, []);
 
-  /* ── keyboard shortcut: Ctrl+Shift+S to toggle IME ── */
-  useEffect(() => {
-    const handler = (e: globalThis.KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === "S") {
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === "S" || e.key === "s")) {
         e.preventDefault();
-        setImeEnabled((prev) => {
-          const next = !prev;
-          if (globalToggleRef.current) {
-            globalToggleRef.current.checked = next;
-          }
-          return next;
-        });
+        setImeEnabled((p) => !p);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  /* ── stats ── */
-  const stats = useMemo(() => {
+  const stats = React.useMemo(() => {
     const total = rows.length;
     const reviewed = rows.filter((r) => r.reviewed).length;
     const changed = rows.filter((r) => {
@@ -586,249 +504,164 @@ export function CsvNormalizationPage() {
   }, [rows]);
 
   return (
-    <Box sx={{ p: 2, maxWidth: 1400, mx: "auto" }}>
-      {/* ── Header ── */}
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={2}
-        flexWrap="wrap"
-        sx={{ mb: 1.5 }}
-      >
-        <Typography variant="h5" fontWeight={600} sx={{ mr: 1 }}>
-          CSV Normalization Validator
-        </Typography>
+    <>
+      <PageHeader
+        title="CSV Normalization Validator"
+        description="Compare original Sinhala text against the number-normalized version and edit inline."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <UploadCloud className="size-4" />
+              Upload CSV
+            </Button>
+            {rows.length > 0 && (
+              <Button size="sm" variant="success" onClick={handleDownload}>
+                <Download className="size-4" />
+                Download
+              </Button>
+            )}
+            <div className="flex items-center gap-2 pl-1 ml-1 border-l border-border h-8">
+              <Keyboard className="size-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Sinhala IME</span>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Switch
+                      checked={imeEnabled}
+                      onCheckedChange={setImeEnabled}
+                      aria-label="Toggle Sinhala IME"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Toggle Sinhala IME (Ctrl+Shift+S)
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        }
+      />
 
-        {/* Upload */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
-        />
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<UploadFileIcon />}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Upload CSV
-        </Button>
-
-        {/* Download */}
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="size-3 rounded-sm bg-destructive/25 ring-1 ring-destructive/40" />
+          removed from text
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="size-3 rounded-sm bg-success/25 ring-1 ring-success/40" />
+          added in tn_text
+        </div>
+        <span className="hidden sm:inline">
+          Click edit · Ctrl+↵ save · Esc cancel · Ctrl+Shift+S toggle IME
+        </span>
         {rows.length > 0 && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownload}
-            color="success"
-          >
-            Download CSV
-          </Button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Badge variant="outline">{stats.total} rows</Badge>
+            <Badge variant="warning">{stats.changed} changed</Badge>
+            <Badge variant="success">{stats.reviewed} reviewed</Badge>
+          </div>
         )}
-
-        <Box sx={{ flex: 1 }} />
-
-        {/* Stats */}
-        {rows.length > 0 && (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              label={`${stats.total} rows`}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={`${stats.changed} changed`}
-              size="small"
-              color="warning"
-              variant="outlined"
-            />
-            <Chip
-              label={`${stats.reviewed} reviewed`}
-              size="small"
-              color="success"
-              variant="outlined"
-            />
-          </Stack>
-        )}
-
-        {/* IME toggle */}
-        <Stack direction="row" alignItems="center" spacing={0.75}>
-          <KeyboardIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ userSelect: "none" }}
-          >
-            Sinhala IME
-          </Typography>
-          <Tooltip title="Toggle Sinhala IME (Ctrl+Shift+S)">
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                ref={globalToggleRef}
-                className="toggle-input"
-                checked={imeEnabled}
-                onChange={(e) => setImeEnabled(e.target.checked)}
-              />
-              <span className="toggle-slider">
-                <span className="toggle-text off">EN</span>
-                <span className="toggle-text on">සි</span>
-              </span>
-            </label>
-          </Tooltip>
-        </Stack>
-      </Stack>
-
-      {/* Diff legend */}
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: "2px",
-              bgcolor: "rgba(255,80,80,0.28)",
-              border: "1px solid rgba(255,80,80,0.5)",
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            removed from text
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: "2px",
-              bgcolor: "rgba(80,200,120,0.28)",
-              border: "1px solid rgba(80,200,120,0.5)",
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            added in tn_text
-          </Typography>
-        </Stack>
-        <SwapHorizIcon sx={{ fontSize: 14, color: "text.disabled" }} />
-        <Typography variant="caption" color="text.disabled">
-          Click <EditIcon sx={{ fontSize: 11, verticalAlign: "middle" }} /> to
-          edit · Ctrl+↵ save · Esc cancel · Ctrl+Shift+S toggle IME
-        </Typography>
-      </Stack>
+      </div>
 
       {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1.5 }}>
-          {error}
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => setError(null)}
+              aria-label="Dismiss error"
+            >
+              <X className="size-3.5" />
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
-      {rows.length === 0 && !error && (
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 6,
-            textAlign: "center",
-            borderStyle: "dashed",
-            cursor: "pointer",
-          }}
+      {rows.length === 0 && !error ? (
+        <Card
           onClick={() => fileInputRef.current?.click()}
+          className="border-dashed cursor-pointer hover:border-primary/50 transition-colors"
         >
-          <UploadFileIcon
-            sx={{ fontSize: 48, color: "text.secondary", mb: 1 }}
-          />
-          <Typography color="text.secondary">
-            Click to upload a CSV file with <code>text</code> and{" "}
-            <code>tn_text</code> columns
-          </Typography>
-          <Typography variant="caption" color="text.disabled">
-            The tn_text column should contain number-normalized Sinhala text
-          </Typography>
-        </Paper>
-      )}
+          <CardContent className="py-14 flex flex-col items-center text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground mb-3">
+              <UploadCloud className="size-5" />
+            </span>
+            <p className="text-base font-semibold">Click to upload a CSV file</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md">
+              The CSV must have columns <code className="text-foreground">text</code> and{" "}
+              <code className="text-foreground">tn_text</code>. The{" "}
+              <code className="text-foreground">tn_text</code> column should
+              contain number-normalized Sinhala text.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {rows.length > 0 && (
-        <TableContainer
-          component={Paper}
-          variant="outlined"
-          sx={{ maxHeight: "calc(100vh - 200px)", overflow: "auto" }}
-        >
-          <Table size="small" stickyHeader sx={{ tableLayout: "fixed" }}>
-            <TableHead>
-              <TableRow>
-                <TableCell
-                  sx={{
-                    width: 40,
-                    py: 0.5,
-                    px: 1,
-                    fontSize: "0.75rem",
-                    bgcolor: "background.paper",
-                    borderRight: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  #
-                </TableCell>
-                <TableCell
-                  sx={{
-                    width: "43%",
-                    py: 0.5,
-                    px: 1,
-                    fontSize: "0.75rem",
-                    bgcolor: "background.paper",
-                    borderRight: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  text{" "}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    color="text.disabled"
-                  >
-                    (original)
-                  </Typography>
-                </TableCell>
-                <TableCell
-                  sx={{
-                    py: 0.5,
-                    px: 1,
-                    fontSize: "0.75rem",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  tn_text{" "}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    color="text.disabled"
-                  >
-                    (normalized — editable)
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row, index) => (
-                <RowComponent
-                  key={row.id}
-                  row={row}
-                  index={index}
-                  isEditing={editingId === row.id}
-                  onStartEdit={handleStartEdit}
-                  onSave={handleSave}
-                  onCancel={handleCancel}
-                  imeManager={imeManager}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Card className="overflow-hidden p-0">
+          <div
+            className="relative w-full overflow-auto"
+            style={{ maxHeight: "calc(100vh - 280px)" }}
+          >
+            <Table className="text-sm" style={{ tableLayout: "fixed" }}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 px-2 border-r border-border">
+                    #
+                  </TableHead>
+                  <TableHead className="w-[42%] border-r border-border">
+                    text{" "}
+                    <span className="normal-case font-normal text-muted-foreground/70">
+                      (original)
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    tn_text{" "}
+                    <span className="normal-case font-normal text-muted-foreground/70">
+                      (normalized — editable)
+                    </span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, index) => (
+                  <RowComponent
+                    key={row.id}
+                    row={row}
+                    index={index}
+                    isEditing={editingId === row.id}
+                    onStartEdit={handleStartEdit}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    imeManager={imeManager}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       )}
 
-      {/* Hidden global IME chip — floats over whatever textarea is active */}
+      {/* Hidden IME plumbing — chip floats over active textarea */}
+      <input
+        ref={hiddenToggleRef}
+        type="checkbox"
+        defaultChecked={imeEnabled}
+        className="hidden"
+      />
       <button
         type="button"
         ref={globalChipRef}
@@ -837,6 +670,6 @@ export function CsvNormalizationPage() {
       >
         සි | en
       </button>
-    </Box>
+    </>
   );
 }

@@ -1,501 +1,401 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Divider,
-    Stack,
-    Typography,
-} from "@mui/material";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import SkipNextIcon from "@mui/icons-material/SkipNext";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopIcon from "@mui/icons-material/Stop";
+  BadgeCheck,
+  CheckCircle2,
+  ExternalLink,
+  Inbox,
+  Play,
+  RefreshCw,
+  ShieldOff,
+  SkipForward,
+  Square,
+  Loader2,
+} from "lucide-react";
 import {
-    MiniAudioPlayer,
-    type MiniAudioPlayerHandle,
+  MiniAudioPlayer,
+  type MiniAudioPlayerHandle,
 } from "../components/audio/MiniAudioPlayer";
+import { PageHeader } from "../components/layout/PageHeader";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
-    EmptyQueueCard,
-    NotificationSnackbar,
-} from "../components/transcription";
-import { useSnackbar } from "../hooks/useSnackbar";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { Separator } from "../components/ui/separator";
+import { Skeleton } from "../components/ui/skeleton";
+import { toast } from "../components/ui/toast";
 import {
-    transcriptionServiceApi,
-    type YouTubeVideoValidationItem,
-    type VideoAudioClip,
+  transcriptionServiceApi,
+  type VideoAudioClip,
+  type YouTubeVideoValidationItem,
 } from "../lib/transcriptionServiceApi";
+import { cn, formatDuration } from "../lib/utils";
 
 export function ValidationPage() {
-    const [video, setVideo] = useState<YouTubeVideoValidationItem | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [playingAll, setPlayingAll] = useState(false);
-    const [activeClipIndex, setActiveClipIndex] = useState<number>(-1);
+  const [video, setVideo] = useState<YouTubeVideoValidationItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [playingAll, setPlayingAll] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
-    const clipRefs = useRef<(MiniAudioPlayerHandle | null)[]>([]);
-    const clipCardRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const playAllAbort = useRef(false);
+  const playerRefs = useRef<(MiniAudioPlayerHandle | null)[]>([]);
+  const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const endResolvers = useRef<((() => void) | null)[]>([]);
+  const abortPlayAll = useRef(false);
 
-    const { snackbar, showSuccess, showError, showInfo, closeSnackbar } =
-        useSnackbar();
-
-    const loadNextVideo = useCallback(async () => {
-        setLoading(true);
+  const loadNext = useCallback(async () => {
+    setLoading(true);
+    setVideo(null);
+    setPlayingAll(false);
+    setActiveIndex(-1);
+    abortPlayAll.current = true;
+    try {
+      const data =
+        await transcriptionServiceApi.getNextYouTubeVideoForValidation();
+      setVideo(data);
+    } catch (err) {
+      const status =
+        (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
         setVideo(null);
-        setPlayingAll(false);
-        setActiveClipIndex(-1);
-        playAllAbort.current = true;
-        try {
-            const data =
-                await transcriptionServiceApi.getNextYouTubeVideoForValidation();
-            setVideo(data);
-        } catch (error: unknown) {
-            const err = error as { response?: { status?: number } };
-            if (err?.response?.status === 404) {
-                setVideo(null);
-                showInfo("No pending videos to validate. Great job!");
-            } else {
-                console.error(error);
-                showError("Failed to load next video.");
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [showInfo, showError]);
+        toast.info("No pending videos to validate");
+      } else {
+        console.error(err);
+        toast.error("Failed to load next video", {
+          description: (err as Error)?.message,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    useEffect(() => {
-        loadNextVideo();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+  useEffect(() => {
+    loadNext();
+  }, [loadNext]);
 
-    // Reset refs array when clip count changes
-    useEffect(() => {
-        clipRefs.current = video?.audio_clips.map(() => null) ?? [];
-        clipCardRefs.current = video?.audio_clips.map(() => null) ?? [];
-    }, [video]);
+  useEffect(() => {
+    playerRefs.current = video?.audio_clips.map(() => null) ?? [];
+    cardRefs.current = video?.audio_clips.map(() => null) ?? [];
+    endResolvers.current = video?.audio_clips.map(() => null) ?? [];
+  }, [video]);
 
-    const handlePlayAll = useCallback(async () => {
-        if (!video || video.audio_clips.length === 0) return;
-        playAllAbort.current = false;
-        setPlayingAll(true);
+  const handleStopAll = useCallback(() => {
+    abortPlayAll.current = true;
+    setPlayingAll(false);
+    setActiveIndex(-1);
+    playerRefs.current.forEach((p) => p?.stop());
+    endResolvers.current.forEach((r) => r?.());
+    endResolvers.current = endResolvers.current.map(() => null);
+  }, []);
 
-        for (let i = 0; i < video.audio_clips.length; i++) {
-            if (playAllAbort.current) break;
-            setActiveClipIndex(i);
+  const handlePlayAll = useCallback(async () => {
+    if (!video || video.audio_clips.length === 0) return;
+    abortPlayAll.current = false;
+    setPlayingAll(true);
 
-            // Auto-scroll to the active clip
-            const clipCard = clipCardRefs.current[i];
-            if (clipCard) {
-                clipCard.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                });
-            }
+    for (let i = 0; i < video.audio_clips.length; i++) {
+      if (abortPlayAll.current) break;
+      setActiveIndex(i);
 
-            const player = clipRefs.current[i];
-            if (!player) continue;
+      const card = cardRefs.current[i];
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
 
-            await new Promise<void>((resolve) => {
-                // We need to wire onEnded temporarily — handled via the ref's play + a listener
-                const onEnd = () => resolve();
-                // Play and wait for it to end
-                player.play().catch(() => resolve());
-                // The MiniAudioPlayer calls onEnded when clip finishes; we'll use a polling approach
-                // since we can't dynamically swap onEnded. Instead, let's use the audio element ended event.
-                // Simpler: create a promise that resolves when the audio element fires "ended"
-                // We'll rely on a timeout-based polling since we don't have direct access.
-                // Actually, the cleanest way: use the onEnded callback. We'll set it up on the clip card.
-                // For now, let's just resolve via the onEnded wired in the clip.
-                // We pass a callback per-clip that resolves the promise.
-                clipEndResolvers.current[i] = onEnd;
-            });
+      const player = playerRefs.current[i];
+      if (!player) continue;
 
-            // 1-second gap between clips
-            if (i < video.audio_clips.length - 1 && !playAllAbort.current) {
-                await new Promise((r) => setTimeout(r, 1000));
-            }
-        }
+      await new Promise<void>((resolve) => {
+        endResolvers.current[i] = () => {
+          endResolvers.current[i] = null;
+          resolve();
+        };
+        player.play().catch(() => {
+          endResolvers.current[i] = null;
+          resolve();
+        });
+      });
 
-        setPlayingAll(false);
-        setActiveClipIndex(-1);
-    }, [video]);
+      if (i < video.audio_clips.length - 1 && !abortPlayAll.current) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    setPlayingAll(false);
+    setActiveIndex(-1);
+  }, [video]);
 
-    const handleStopAll = useCallback(() => {
-        playAllAbort.current = true;
-        setPlayingAll(false);
-        setActiveClipIndex(-1);
-        clipRefs.current.forEach((ref) => ref?.stop());
-        // Resolve any pending promise
-        clipEndResolvers.current.forEach((resolve) => resolve?.());
-        clipEndResolvers.current = [];
-    }, []);
+  const handleClipEnded = useCallback((index: number) => {
+    const r = endResolvers.current[index];
+    if (r) r();
+  }, []);
 
-    // Store resolvers for play-all sequencing
-    const clipEndResolvers = useRef<((() => void) | null)[]>([]);
+  const handleValidate = useCallback(
+    async (isValidated: boolean) => {
+      if (!video) return;
+      handleStopAll();
+      setSubmitting(true);
+      try {
+        await transcriptionServiceApi.submitVideoValidationStatus(
+          video.id,
+          isValidated,
+        );
+        toast.success(
+          isValidated ? "Marked as validated" : "Marked as not valid",
+        );
+        await loadNext();
+      } catch (err) {
+        toast.error("Failed to submit validation", {
+          description: (err as Error)?.message,
+        });
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [video, handleStopAll, loadNext],
+  );
 
-    const handleClipEnded = useCallback((index: number) => {
-        const resolver = clipEndResolvers.current[index];
-        if (resolver) {
-            resolver();
-            clipEndResolvers.current[index] = null;
-        }
-    }, []);
-
-    const handleValidate = useCallback(
-        async (isValidated: boolean) => {
-            if (!video) return;
-            handleStopAll();
-            try {
-                setSubmitting(true);
-                await transcriptionServiceApi.submitVideoValidationStatus(
-                    video.id,
-                    isValidated,
-                );
-                showSuccess(
-                    isValidated
-                        ? "Video marked as validated. Loading next..."
-                        : "Video marked as not validated. Loading next...",
-                );
-                await loadNextVideo();
-            } catch (error) {
-                console.error(error);
-                showError("Failed to submit validation status.");
-            } finally {
-                setSubmitting(false);
-            }
-        },
-        [video, handleStopAll, loadNextVideo, showSuccess, showError],
-    );
-
-    return (
-        <Box
-            component="section"
-            sx={{ height: "90vh", display: "flex", flexDirection: "column" }}
+  const playAllAction = (
+    <div className="flex flex-wrap items-center gap-2">
+      {playingAll ? (
+        <Button variant="destructive" size="sm" onClick={handleStopAll}>
+          <Square className="size-4" />
+          Stop all
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          onClick={handlePlayAll}
+          disabled={!video || video.audio_clips.length === 0}
         >
-            {/* Header */}
-            <Box
-                sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    mb: 3,
-                    // items in here vertically align bottom of the outer div
-                }}
-            >
-                <Box>
-                    <Typography variant="h4" fontWeight={700} gutterBottom>
-                        Video Validation
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Listen to audio clips and validate YouTube video
-                        transcriptions
-                    </Typography>
-                </Box>
-                {/* Play All / Stop All toolbar */}
-                {playingAll ? (
-                    <Button
-                        variant="outlined"
-                        color="error"
-                        size="small"
-                        startIcon={<StopIcon />}
-                        onClick={handleStopAll}
-                        sx={{ mt: "auto" }}
-                    >
-                        Stop All
-                    </Button>
-                ) : (
-                    <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={handlePlayAll}
-                        sx={{ mt: "auto" }}
-                    >
-                        Play All
-                    </Button>
-                )}
-            </Box>
+          <Play className="size-4" />
+          Play all
+        </Button>
+      )}
+      <Button variant="ghost" size="sm" onClick={loadNext} disabled={submitting}>
+        <RefreshCw className="size-4" />
+        Refresh
+      </Button>
+    </div>
+  );
 
-            {/* Empty / Loading state */}
-            {!video && !loading ? (
-                <EmptyQueueCard
-                    title="No videos pending validation 🎉"
-                    description="All YouTube videos have been reviewed."
-                    onRefresh={loadNextVideo}
-                    refreshLabel="Check again"
-                />
-            ) : loading ? (
-                <Card variant="outlined">
-                    <CardContent sx={{ textAlign: "center", py: 4 }}>
-                        <Typography color="text.secondary">
-                            Loading next video...
-                        </Typography>
-                    </CardContent>
-                </Card>
-            ) : (
-                video && (
-                    <Box
-                        sx={{
-                            flexGrow: 1,
-                            minHeight: 0,
-                            display: "flex",
-                            flexDirection: "column",
+  return (
+    <>
+      <PageHeader
+        eyebrow="Admin"
+        title="Video Validation"
+        description="Listen to audio clips and validate the YouTube video transcription set."
+        actions={playAllAction}
+      />
+
+      {loading ? (
+        <ValidationSkeleton />
+      ) : !video ? (
+        <Card className="max-w-md mx-auto">
+          <CardContent className="pt-12 pb-10 flex flex-col items-center text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground mb-3">
+              <Inbox className="size-5" />
+            </span>
+            <p className="text-base font-semibold">All caught up</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              No pending videos to validate.
+            </p>
+            <Button onClick={loadNext} className="mt-5" variant="outline">
+              <RefreshCw className="size-4" />
+              Check again
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          <Card className="lg:sticky lg:top-20 self-start">
+            <CardHeader className="pb-3">
+              <div className="aspect-video w-full rounded-lg overflow-hidden bg-muted">
+                <a
+                  href={video.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group relative"
+                >
+                  <img
+                    src={video.thumbnail}
+                    alt={video.title}
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                    <span className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Play className="size-5" />
+                    </span>
+                  </span>
+                </a>
+              </div>
+              <CardTitle className="mt-3 line-clamp-2">{video.title}</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {video.uploader} · {video.upload_date}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline">
+                  {video.domain.replace(/_/g, " ")}
+                </Badge>
+                <Badge variant="muted">
+                  {video.audio_clip_count} clip
+                  {video.audio_clip_count !== 1 ? "s" : ""}
+                </Badge>
+                <Badge variant="muted">
+                  {formatDuration(Number(video.duration) || 0)}
+                </Badge>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => window.open(video.url, "_blank", "noopener")}
+              >
+                <ExternalLink className="size-4" />
+                Open on YouTube
+              </Button>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Button
+                  variant="success"
+                  className="w-full"
+                  onClick={() => handleValidate(true)}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  Mark as validated
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleValidate(false)}
+                  disabled={submitting}
+                >
+                  <ShieldOff className="size-4" />
+                  Mark as not valid
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={loadNext}
+                  disabled={submitting}
+                >
+                  <SkipForward className="size-4" />
+                  Skip
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <BadgeCheck className="size-4 text-primary" />
+                  Audio clips
+                </CardTitle>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {playingAll && activeIndex >= 0
+                    ? `Playing ${activeIndex + 1} / ${video.audio_clips.length}`
+                    : `${video.audio_clips.length} total`}
+                </span>
+              </div>
+            </CardHeader>
+            <Separator />
+            <CardContent className="p-0">
+              <ScrollArea className="h-[65vh]">
+                <ul className="divide-y divide-border">
+                  {video.audio_clips.map(
+                    (clip: VideoAudioClip, index: number) => (
+                      <li
+                        key={clip.audio_id}
+                        ref={(el) => {
+                          cardRefs.current[index] = el;
                         }}
-                    >
-                        {/* Two-column layout: Video info (left) + Audio clips (right) */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gap: 3,
-                                gridTemplateColumns: {
-                                    xs: "1fr",
-                                    md: "380px 1fr",
-                                },
-                                alignItems: "stretch",
-                                flexGrow: 1,
-                                minHeight: 0,
-                            }}
-                        >
-                            {/* Left Column – Video Info */}
-                            <Card
-                                variant="outlined"
-                                sx={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    maxHeight: "100%",
-                                    overflow: "hidden",
-                                }}
-                            >
-                                <CardContent
-                                    sx={{
-                                        p: 2,
-                                        "&:last-child": { pb: 2 },
-                                        overflowY: "auto",
-                                        flexGrow: 1,
-                                    }}
-                                >
-                                    <Box
-                                        component="img"
-                                        src={video.thumbnail}
-                                        alt={video.title}
-                                        sx={{
-                                            width: "100%",
-                                            borderRadius: 1.5,
-                                            objectFit: "cover",
-                                            mb: 2,
-                                        }}
-                                    />
-
-                                    <Typography
-                                        variant="subtitle1"
-                                        fontWeight={600}
-                                        gutterBottom
-                                        sx={{
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {video.title}
-                                    </Typography>
-
-                                    <Stack
-                                        direction="row"
-                                        spacing={0.5}
-                                        flexWrap="wrap"
-                                        useFlexGap
-                                        sx={{ mb: 1.5 }}
-                                    >
-                                        <Chip
-                                            label={video.uploader}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                        <Chip
-                                            label={video.domain.replace(
-                                                /_/g,
-                                                " ",
-                                            )}
-                                            size="small"
-                                            color="primary"
-                                            variant="outlined"
-                                        />
-                                        <Chip
-                                            label={`${video.audio_clip_count} clips`}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                        <Chip
-                                            label={`${Math.floor(Number(video.duration) / 60)}m ${Number(video.duration) % 60}s`}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                        <Chip
-                                            label={video.upload_date}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                    </Stack>
-
-                                    <Button
-                                        href={video.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        size="small"
-                                        startIcon={<OpenInNewIcon />}
-                                        fullWidth
-                                        variant="outlined"
-                                    >
-                                        Open on YouTube
-                                    </Button>
-
-                                    {/* Validation Actions */}
-                                    <Divider sx={{ my: 2 }} />
-                                    <Stack spacing={1}>
-                                        <Button
-                                            variant="contained"
-                                            color="success"
-                                            startIcon={<CheckCircleIcon />}
-                                            onClick={() => handleValidate(true)}
-                                            disabled={submitting}
-                                            fullWidth
-                                        >
-                                            Mark as Validated
-                                        </Button>
-                                        <Button
-                                            variant="outlined"
-                                            color="warning"
-                                            onClick={() =>
-                                                handleValidate(false)
-                                            }
-                                            disabled={submitting}
-                                            fullWidth
-                                        >
-                                            Mark as Not Valid
-                                        </Button>
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<SkipNextIcon />}
-                                            onClick={loadNextVideo}
-                                            disabled={submitting}
-                                            fullWidth
-                                        >
-                                            Skip
-                                        </Button>
-                                    </Stack>
-                                </CardContent>
-                            </Card>
-
-                            {/* Right Column – Audio Clips */}
-                            <Stack
-                                sx={{
-                                    height: "100%",
-                                    overflowY: "auto",
-                                    pr: 1,
-                                    borderRadius: 1.5,
-                                }}
-                            >
-                                {video.audio_clips.map(
-                                    (clip: VideoAudioClip, index: number) => (
-                                        <AudioClipCard
-                                            key={clip.audio_id}
-                                            clip={clip}
-                                            highlight={
-                                                playingAll &&
-                                                activeClipIndex === index
-                                            }
-                                            playerRef={(el) => {
-                                                clipRefs.current[index] = el;
-                                            }}
-                                            cardRef={(el) => {
-                                                clipCardRefs.current[index] =
-                                                    el;
-                                            }}
-                                            onEnded={() =>
-                                                handleClipEnded(index)
-                                            }
-                                        />
-                                    ),
-                                )}
-                            </Stack>
-                        </Box>
-                    </Box>
-                )
-            )}
-
-            <NotificationSnackbar snackbar={snackbar} onClose={closeSnackbar} />
-        </Box>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Audio Clip Card (local sub-component)                             */
-/* ------------------------------------------------------------------ */
-
-interface AudioClipCardProps {
-    clip: VideoAudioClip;
-    highlight?: boolean;
-    playerRef: (handle: MiniAudioPlayerHandle | null) => void;
-    cardRef: (el: HTMLDivElement | null) => void;
-    onEnded: () => void;
-}
-
-function AudioClipCard({
-    clip,
-    highlight,
-    playerRef,
-    cardRef,
-    onEnded,
-}: AudioClipCardProps) {
-    return (
-        <Box
-            ref={cardRef}
-            sx={{
-                borderBottom: 1,
-                borderColor: "divider",
-                borderRadius: 0,
-                bgcolor: "background.paper",
-                transition: "box-shadow 0.2s, border-color 0.2s",
-                // boxShadow: highlight
-                //     ? (theme) => `0 0 0 1px ${theme.palette.primary.main}`
-                //     : undefined,
-            }}
-        >
-            <Box sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                <MiniAudioPlayer
-                    ref={playerRef}
-                    src={clip.gcs_signed_url}
-                    onEnded={onEnded}
-                    highlight={highlight}
-                />
-
-                {clip.google_transcription && (
-                    <Box
-                        sx={{
-                            mt: 1,
-                            p: 1,
-                            border: 3,
-                            borderColor: highlight
-                                ? "primary.main"
-                                : "transparent",
-                            bgcolor: "action.hover",
-                            borderRadius: 1,
-                            transition: "background-color 0.2s",
-                        }}
-                    >
-                        <Typography
-                            variant="body2"
-                            color={highlight ? "primary.contrastText" : ""}
-                        >
+                        className={cn(
+                          "px-5 py-3 transition-colors",
+                          playingAll && activeIndex === index && "bg-primary/5",
+                        )}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">
+                            {clip.audio_filename}
+                          </span>
+                        </div>
+                        <MiniAudioPlayer
+                          ref={(el) => {
+                            playerRefs.current[index] = el;
+                          }}
+                          src={clip.gcs_signed_url}
+                          highlight={playingAll && activeIndex === index}
+                          onEnded={() => handleClipEnded(index)}
+                        />
+                        {clip.google_transcription && (
+                          <p
+                            className={cn(
+                              "mt-2 text-sm leading-relaxed rounded-md border border-border bg-background/40 p-3 whitespace-pre-wrap break-words",
+                              playingAll &&
+                                activeIndex === index &&
+                                "border-primary",
+                            )}
+                          >
                             {clip.google_transcription}
-                        </Typography>
-                    </Box>
-                )}
-            </Box>
-        </Box>
-    );
+                          </p>
+                        )}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ValidationSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="aspect-video w-full" />
+          <Skeleton className="h-5 w-3/4 mt-3" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

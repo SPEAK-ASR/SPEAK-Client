@@ -1,249 +1,295 @@
-import { useEffect, useRef, useState } from "react";
 import {
-    Box,
-    FormControl,
-    IconButton,
-    LinearProgress,
-    MenuItem,
-    Select,
-    Stack,
-    Tooltip,
-    Typography,
-} from "@mui/material";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import PauseIcon from "@mui/icons-material/Pause";
-import ReplayIcon from "@mui/icons-material/Replay";
-import LoopIcon from "@mui/icons-material/Loop";
-import FastForwardIcon from "@mui/icons-material/FastForward";
-import FastRewindIcon from "@mui/icons-material/FastRewind";
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import {
+  Pause,
+  Play,
+  Repeat,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Slider } from "../ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { cn, formatDuration } from "../../lib/utils";
+
+export interface AudioPlayerHandle {
+  play: () => Promise<void>;
+  pause: () => void;
+  seek: (seconds: number) => void;
+  reset: () => void;
+}
 
 interface AudioPlayerProps {
-    src?: string;
-    disabled?: boolean;
-    onEnded?: () => void;
+  src: string;
+  className?: string;
+  autoPlay?: boolean;
+  onEnded?: () => void;
+  showSpeed?: boolean;
+  showLoop?: boolean;
+  showSkip?: boolean;
+  skipSeconds?: number;
+  compact?: boolean;
 }
 
-const SPEEDS = [0.75, 1, 1.25, 1.5];
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-function formatTime(seconds: number) {
-    if (!Number.isFinite(seconds)) return "00:00";
-    const minutes = Math.floor(seconds / 60)
-        .toString()
-        .padStart(2, "0");
-    const secs = Math.floor(seconds % 60)
-        .toString()
-        .padStart(2, "0");
-    return `${minutes}:${secs}`;
-}
-
-export function AudioPlayer({ src, disabled, onEnded }: AudioPlayerProps) {
+export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
+  function AudioPlayer(
+    {
+      src,
+      className,
+      autoPlay = false,
+      onEnded,
+      showSpeed = true,
+      showLoop = true,
+      showSkip = true,
+      skipSeconds = 5,
+      compact = false,
+    },
+    ref,
+  ) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [playbackRate, setPlaybackRate] = useState(1);
-    const [autoReplay, setAutoReplay] = useState(false);
+    const [volume, setVolume] = useState(1);
+    const [muted, setMuted] = useState(false);
+    const [speed, setSpeed] = useState(1);
+    const [loop, setLoop] = useState(false);
 
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
-
-        const handleLoaded = () => {
-            setDuration(audio.duration || 0);
-        };
-        const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-        const handleEnded = () => {
-            setIsPlaying(false);
-            if (autoReplay) {
-                audio.currentTime = 0;
-                audio.play().catch(() => setIsPlaying(false));
-            }
-            onEnded?.();
-        };
-
-        audio.addEventListener("loadedmetadata", handleLoaded);
-        audio.addEventListener("timeupdate", handleTimeUpdate);
-        audio.addEventListener("ended", handleEnded);
-
-        return () => {
-            audio.removeEventListener("loadedmetadata", handleLoaded);
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
-            audio.removeEventListener("ended", handleEnded);
-        };
-    }, [autoReplay, onEnded]);
-
-    useEffect(() => {
+    useImperativeHandle(ref, () => ({
+      play: async () => {
+        const a = audioRef.current;
+        if (a) await a.play();
+      },
+      pause: () => audioRef.current?.pause(),
+      seek: (s) => {
+        if (audioRef.current) audioRef.current.currentTime = s;
+      },
+      reset: () => {
+        const a = audioRef.current;
+        if (a) {
+          a.pause();
+          a.currentTime = 0;
+        }
         setIsPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
-        const audio = audioRef.current;
-        if (audio) {
-            audio.pause();
-            audio.load();
-        }
-    }, [src]);
+      },
+    }));
 
     useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.playbackRate = playbackRate;
-        }
-    }, [playbackRate]);
+      const a = audioRef.current;
+      if (!a) return;
+      a.pause();
+      a.currentTime = 0;
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      if (autoPlay) {
+        a.play().catch(() => undefined);
+      }
+    }, [src, autoPlay]);
 
-    const togglePlayback = () => {
-        if (!audioRef.current || !src) return;
-        if (isPlaying) {
-            audioRef.current.pause();
-            setIsPlaying(false);
-        } else {
-            audioRef.current
-                .play()
-                .then(() => setIsPlaying(true))
-                .catch(() => setIsPlaying(false));
-        }
-    };
+    useEffect(() => {
+      const a = audioRef.current;
+      if (a) a.playbackRate = speed;
+    }, [speed]);
 
-    const seek = (delta: number) => {
-        if (!audioRef.current) return;
-        const next = Math.min(
-            Math.max(audioRef.current.currentTime + delta, 0),
-            duration || audioRef.current.duration || 0,
-        );
-        audioRef.current.currentTime = next;
-        setCurrentTime(next);
-    };
+    useEffect(() => {
+      const a = audioRef.current;
+      if (a) {
+        a.volume = muted ? 0 : volume;
+      }
+    }, [volume, muted]);
 
-    const handleProgressClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (!audioRef.current || !duration) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const ratio = (event.clientX - rect.left) / rect.width;
-        const next = Math.max(0, Math.min(duration * ratio, duration));
-        audioRef.current.currentTime = next;
-        setCurrentTime(next);
+    const togglePlay = async () => {
+      const a = audioRef.current;
+      if (!a) return;
+      if (a.paused) {
+        await a.play();
+      } else {
+        a.pause();
+      }
     };
 
     return (
-        <Box>
-            <audio ref={audioRef} preload="auto">
-                {src && <source src={src} />}
-            </audio>
+      <div
+        className={cn(
+          "rounded-lg border border-border bg-background/40 p-3",
+          compact && "p-2",
+          className,
+        )}
+      >
+        <audio
+          ref={audioRef}
+          src={src}
+          loop={loop}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onTimeUpdate={(e) =>
+            setCurrentTime((e.target as HTMLAudioElement).currentTime)
+          }
+          onLoadedMetadata={(e) =>
+            setDuration((e.target as HTMLAudioElement).duration || 0)
+          }
+          onEnded={() => {
+            setIsPlaying(false);
+            onEnded?.();
+          }}
+        />
 
-            <Box
-                onClick={handleProgressClick}
-                sx={{ cursor: "pointer", mb: 1 }}
+        <div className="flex items-center gap-2">
+          {showSkip && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                const a = audioRef.current;
+                if (a) a.currentTime = Math.max(0, a.currentTime - skipSeconds);
+              }}
+              aria-label={`Rewind ${skipSeconds} seconds`}
             >
-                <LinearProgress
-                    variant={duration ? "determinate" : "indeterminate"}
-                    value={
-                        duration ? (currentTime / duration) * 100 : undefined
-                    }
-                />
-            </Box>
+              <SkipBack className="size-4" />
+            </Button>
+          )}
 
-            <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-                sx={{ mb: 1 }}
-            >
-                <Typography variant="body2">
-                    {formatTime(currentTime)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    {formatTime(duration)}
-                </Typography>
-            </Stack>
+          <Button
+            size="icon"
+            onClick={togglePlay}
+            aria-label={isPlaying ? "Pause" : "Play"}
+            aria-pressed={isPlaying}
+          >
+            {isPlaying ? (
+              <Pause className="size-4" />
+            ) : (
+              <Play className="size-4" />
+            )}
+          </Button>
 
-            <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                alignItems={{ xs: "flex-start", sm: "center" }}
-                justifyContent="space-between"
+          {showSkip && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                const a = audioRef.current;
+                if (a)
+                  a.currentTime = Math.min(
+                    a.duration || a.currentTime + skipSeconds,
+                    a.currentTime + skipSeconds,
+                  );
+              }}
+              aria-label={`Forward ${skipSeconds} seconds`}
             >
-                <Stack direction="row" spacing={1} alignItems="center">
-                    <Tooltip title="Replay">
-                        <span>
-                            <IconButton
-                                onClick={() => {
-                                    if (!audioRef.current) return;
-                                    audioRef.current.currentTime = 0;
-                                    if (isPlaying) {
-                                        audioRef.current
-                                            .play()
-                                            .catch(() => undefined);
-                                    }
-                                }}
-                                disabled={disabled || !src}
-                            >
-                                <ReplayIcon />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title="Back 1s">
-                        <span>
-                            <IconButton
-                                onClick={() => seek(-1)}
-                                disabled={disabled || !src}
-                            >
-                                <FastRewindIcon />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title={isPlaying ? "Pause" : "Play"}>
-                        <span>
-                            <IconButton
-                                color="primary"
-                                onClick={togglePlayback}
-                                disabled={disabled || !src}
-                            >
-                                {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title="Forward 1s">
-                        <span>
-                            <IconButton
-                                onClick={() => seek(1)}
-                                disabled={disabled || !src}
-                            >
-                                <FastForwardIcon />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title="Auto replay when finished">
-                        <span>
-                            <IconButton
-                                color={autoReplay ? "primary" : "default"}
-                                onClick={() => setAutoReplay((prev) => !prev)}
-                                disabled={disabled || !src}
-                            >
-                                <LoopIcon />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                </Stack>
-                <FormControl
-                    size="small"
-                    sx={{
-                        minWidth: 120,
-                        alignSelf: { xs: "stretch", sm: "flex-end" },
-                    }}
-                >
-                    <Select
-                        value={playbackRate}
-                        onChange={(event) =>
-                            setPlaybackRate(Number(event.target.value))
-                        }
-                        displayEmpty
-                        inputProps={{ "aria-label": "Playback speed" }}
-                    >
-                        {SPEEDS.map((speed) => (
-                            <MenuItem key={speed} value={speed}>
-                                {speed.toFixed(2).replace(/\.00$/, "")}x
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            </Stack>
-        </Box>
+              <SkipForward className="size-4" />
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              const a = audioRef.current;
+              if (a) {
+                a.currentTime = 0;
+                a.play().catch(() => undefined);
+              }
+            }}
+            aria-label="Replay"
+          >
+            <RotateCcw className="size-4" />
+          </Button>
+
+          <span className="text-xs tabular-nums text-muted-foreground min-w-[5.5rem]">
+            {formatDuration(currentTime)} / {formatDuration(duration)}
+          </span>
+
+          <div className="flex-1 min-w-0">
+            <Slider
+              value={[currentTime]}
+              max={duration || 0}
+              step={0.05}
+              onValueChange={(v) => {
+                const a = audioRef.current;
+                if (a && Number.isFinite(v[0])) a.currentTime = v[0];
+              }}
+              aria-label="Seek"
+            />
+          </div>
+
+          {showLoop && (
+            <Button
+              variant={loop ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() => setLoop((l) => !l)}
+              aria-label="Toggle loop"
+              aria-pressed={loop}
+            >
+              <Repeat className="size-4" />
+            </Button>
+          )}
+
+          {!compact && (
+            <div className="hidden md:flex items-center gap-1.5 w-28">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setMuted((m) => !m)}
+                aria-label={muted ? "Unmute" : "Mute"}
+              >
+                {muted ? (
+                  <VolumeX className="size-4" />
+                ) : (
+                  <Volume2 className="size-4" />
+                )}
+              </Button>
+              <Slider
+                value={[muted ? 0 : volume]}
+                max={1}
+                step={0.05}
+                onValueChange={(v) => {
+                  setMuted(false);
+                  setVolume(v[0]);
+                }}
+                aria-label="Volume"
+              />
+            </div>
+          )}
+
+          {showSpeed && (
+            <Select
+              value={speed.toString()}
+              onValueChange={(v) => setSpeed(parseFloat(v))}
+            >
+              <SelectTrigger
+                className="h-8 w-[5rem] text-xs"
+                aria-label="Playback speed"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SPEEDS.map((s) => (
+                  <SelectItem key={s} value={s.toString()}>
+                    {s}×
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </div>
     );
-}
+  },
+);

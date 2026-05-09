@@ -14,10 +14,15 @@ Single-page React client for the SPEAK platform. The app now hosts every operato
 ## Tech Stack
 
 - **React 19 + TypeScript** powered by **Vite**
-- **Material UI** components with custom theming + Tailwind utility classes
+- **Tailwind CSS v4** + **Radix UI** primitives (shadcn-style components in [`src/components/ui/`](src/components/ui))
+- **framer-motion** for route + element transitions, **Sonner** for toasts
+- **Recharts** for the statistics dashboard
+- **lucide-react** icon set, **class-variance-authority** + **clsx/tailwind-merge** for variants
 - **React Router** for page-level routing
 - **Axios** API clients for both backend services
 - Sinhala IME served as a plain script and wired through a custom hook
+
+The full design specification — tokens, component inventory, every page breakdown, motion + a11y rules — lives in [UI-redesign-plan.md](UI-redesign-plan.md). A snapshot of the previous Material UI implementation is preserved under [`reference/`](reference/) for review and is excluded from `tsconfig`, Vite, and ESLint.
 
 ## Prerequisites
 
@@ -81,7 +86,7 @@ Scripts `start.sh` and `install.sh` wrap the same commands for convenience.
 
 ### 1. Ingest & Split YouTube Videos
 
-1. Go to the dashboard, paste a YouTube URL, and choose a domain.
+1. Open **Audio processor** (`/audio-processor`), paste a YouTube URL, and choose a domain.
 2. Optionally tweak VAD aggressiveness and padding.
 3. Start the pipeline to push work into the Audio-Scraping-Service; monitor progress across the standard stages (split → transcribe → save → complete).
 
@@ -134,25 +139,42 @@ All previous `/statistics/*` visualizations remain available under `/statistics`
 ```
 SPEAK-Client/
 ├── public/
-│   └── sin-phonetic-ime.js   # Legacy Sinhala IME served verbatim
+│   └── sin-phonetic-ime.js          # Legacy Sinhala IME served verbatim
+├── reference/                       # Snapshot of the previous MUI build
+├── UI-redesign-plan.md              # Design system + per-page spec
 ├── src/
+│   ├── assets/profiles/*            # Admin profile pictures
 │   ├── components/
-│   │   ├── layout/AppLayout.tsx
-│   │   ├── transcription/AudioPlayer.tsx
-│   │   ├── admin/AdminIndicator.tsx
-│   │   └── statistics/*
-│   ├── context/AdminContext.tsx  # Global admin state + shortcuts
-│   ├── hooks/useSinhalaIme.ts    # Attaches global IME controller
+│   │   ├── ui/                      # shadcn-style primitives (Button, Card, Dialog, …)
+│   │   ├── layout/                  # AppLayout, Sidebar, TopBar, MobileNav, AdminGate, PageHeader
+│   │   ├── audio/                   # AudioPlayer, MiniAudioPlayer
+│   │   ├── transcription/           # GuidelinesCard, AudioCard, ReferenceCard, Editor, Dialogs, ActionBar
+│   │   ├── stats/ChartCard.tsx      # Chart wrapper + palette
+│   │   └── admin/AdminSelectorDialog.tsx
+│   ├── context/AdminContext.tsx     # Global admin state + Ctrl+` shortcut
+│   ├── hooks/
+│   │   ├── useSinhalaIme.ts         # Attaches global IME controller
+│   │   ├── useServiceStatus.ts      # Polls backend health endpoints
+│   │   └── useChannelCards.ts
 │   ├── lib/
-│   │   ├── api.ts                # Audio-Scraping-Service client
-│   │   └── transcriptionServiceApi.ts
+│   │   ├── api.ts                   # Audio-Scraping-Service client
+│   │   ├── transcriptionServiceApi.ts
+│   │   ├── statisticsApi.ts
+│   │   ├── motion.ts                # framer-motion presets
+│   │   ├── keyboard.ts              # useHotkey
+│   │   └── utils.ts                 # cn(), formatters
 │   ├── pages/
+│   │   ├── AudioProcessorPage.tsx
+│   │   ├── QueueProcessorPage.tsx
 │   │   ├── TranscriptionPage.tsx
 │   │   ├── ValidationPage.tsx
 │   │   ├── LeaderboardPage.tsx
-│   │   └── StatisticsPage.tsx
-│   ├── App.tsx / main.tsx        # Router + providers
-│   └── styles, theme, types
+│   │   ├── StatisticsPage.tsx
+│   │   ├── ChannelBrowserPage.tsx
+│   │   └── CsvNormalizationPage.tsx
+│   ├── App.tsx / main.tsx           # Router + AdminProvider
+│   ├── index.css                    # Tailwind v4 @theme tokens
+│   └── types/                       # Shared TS types (queue, channel, transcription, IME)
 └── ... standard Vite config files
 ```
 
