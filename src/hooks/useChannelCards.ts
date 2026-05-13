@@ -10,9 +10,9 @@ interface UseChannelCardsResult {
   deleteChannel: (channelId: string) => Promise<void>;
 }
 
-const AUDIO_API_BASE =
-  import.meta.env.VITE_AUDIO_SCRAPING_API_URL ??
-  "http://localhost:8000/api/v1";
+const SPEAK_SERVER_API_BASE =
+  import.meta.env.VITE_SPEAK_SERVER_API_URL ??
+  "http://localhost:5000/api/v1";
 
 export function useChannelCards(): UseChannelCardsResult {
   const [channels, setChannels] = useState<ChannelCard[]>([]);
@@ -24,7 +24,7 @@ export function useChannelCards(): UseChannelCardsResult {
     setError(null);
     try {
       const res = await axios.get<ChannelCard[]>(
-        `${AUDIO_API_BASE}/channels`,
+        `${SPEAK_SERVER_API_BASE}/channels`,
       );
       setChannels(res.data.filter((c) => !c.isDeleted));
     } catch (e) {
@@ -41,7 +41,7 @@ export function useChannelCards(): UseChannelCardsResult {
 
   const deleteChannel = useCallback(async (channelId: string) => {
     await axios.delete(
-      `${AUDIO_API_BASE}/channels/${encodeURIComponent(channelId)}`,
+      `${SPEAK_SERVER_API_BASE}/channels/${encodeURIComponent(channelId)}`,
     );
     setChannels((prev) => prev.filter((c) => c.channelId !== channelId));
   }, []);

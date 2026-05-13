@@ -10,23 +10,32 @@ export interface ServiceStatus {
   responseTime?: number;
 }
 
-const AUDIO_SERVICE_URL =
-  import.meta.env.VITE_AUDIO_BASE_URL || "http://localhost:8000";
+const SPEAK_SERVER_URL =
+  import.meta.env.VITE_SPEAK_SERVER_BASE_URL || "http://localhost:5000";
+const AUDIO_SCRAPING_URL =
+  import.meta.env.VITE_AUDIO_SCRAPING_BASE_URL || "http://localhost:5001";
 const TRANSCRIPTION_SERVICE_URL =
-  import.meta.env.VITE_TRANSCRIPTION_BASE_URL || "http://localhost:5000";
+  import.meta.env.VITE_TRANSCRIPTION_BASE_URL || "http://localhost:5002";
 
 const initialServices: ServiceStatus[] = [
   {
+    name: "SPEAK-Server",
+    url: SPEAK_SERVER_URL,
+    port: 5000,
+    isOnline: false,
+    lastChecked: null,
+  },
+  {
     name: "Audio Scraping",
-    url: AUDIO_SERVICE_URL,
-    port: 8000,
+    url: AUDIO_SCRAPING_URL,
+    port: 5001,
     isOnline: false,
     lastChecked: null,
   },
   {
     name: "Transcription",
     url: TRANSCRIPTION_SERVICE_URL,
-    port: 5000,
+    port: 5002,
     isOnline: false,
     lastChecked: null,
   },
