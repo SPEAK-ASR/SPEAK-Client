@@ -296,7 +296,7 @@ function Charts({
         description="Speaker gender and Yes / No / Unknown for noise, code-mixing, and overlap."
         height={520}
       >
-        <div className="grid h-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid h-full min-h-0 grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 xl:grid-cols-4 xl:items-start">
           <MetadataMiniPie
             title="Speaker gender"
             data={genderPie}
@@ -480,10 +480,18 @@ const YNU_COLORS: Record<string, string> = {
   Unknown: CHART_COLORS.muted,
 };
 
+const GENDER_LABEL_OVERRIDES: Record<string, string> = {
+  cannotrecognised: "Cannot recognise",
+  cannotrecognized: "Cannot recognise",
+};
+
 function formatGenderLabel(gender: string): string {
-  const s = gender.trim();
-  if (!s) return "Unknown";
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/_/g, " ");
+  const raw = gender.trim();
+  if (!raw) return "Unknown";
+  const key = raw.toLowerCase().replace(/[\s_-]+/g, "");
+  const mapped = GENDER_LABEL_OVERRIDES[key];
+  if (mapped) return mapped;
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase().replace(/_/g, " ");
 }
 
 function ynukSlices(yes: number, no: number, unknown: number) {
@@ -518,37 +526,67 @@ function MetadataMiniPie({
   emptyHint?: string;
 }) {
   const hasData = data.length > 0 && data.some((d) => d.value > 0);
+  const legendItems = data
+    .map((d, i) => ({ d, i }))
+    .filter(({ d }) => d.value > 0);
+
+  const chartPx = 168;
+  const emptyMinH = chartPx + 52;
 
   return (
-    <div className="flex min-h-[220px] flex-col">
-      <p className="mb-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="flex h-full min-h-0 flex-col items-center">
+      <p className="mb-2 w-full shrink-0 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {title}
       </p>
-      <div className="min-h-0 flex-1 w-full">
+      <div className="flex w-full max-w-[228px] flex-1 flex-col items-center">
         {!hasData ? (
-          <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+          <div
+            style={{ minHeight: emptyMinH }}
+            className="flex w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground"
+          >
             {emptyHint ?? "No data"}
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Tooltip {...TOOLTIP_STYLES} />
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={38}
-                outerRadius={72}
-                paddingAngle={1}
-                stroke="hsl(0 0% 7%)"
-              >
-                {data.map((d, i) => (
-                  <Cell key={`${d.name}-${i}`} fill={getColor(d.name, i)} />
-                ))}
-              </Pie>
-              <Legend wrapperStyle={{ fontSize: 10 }} verticalAlign="bottom" height={28} />
-            </PieChart>
-          </ResponsiveContainer>
+          <>
+            <div className="w-full shrink-0" style={{ height: chartPx }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+                  <Tooltip {...TOOLTIP_STYLES} />
+                  <Pie
+                    data={data}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="54%"
+                    outerRadius="92%"
+                    paddingAngle={1}
+                    stroke="hsl(0 0% 7%)"
+                  >
+                    {data.map((d, i) => (
+                      <Cell key={`${d.name}-${i}`} fill={getColor(d.name, i)} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <ul
+              className="mt-3 flex min-h-[2.75rem] w-full flex-wrap items-start justify-center gap-x-4 gap-y-1.5 px-0 text-[10px] leading-tight text-muted-foreground"
+              aria-label={`${title} legend`}
+            >
+              {legendItems.map(({ d, i }) => (
+                <li
+                  key={`${d.name}-${i}`}
+                  className="flex max-w-[9.5rem] items-center gap-1.5 text-left"
+                >
+                  <span
+                    className="mt-px size-2 shrink-0 rounded-[2px]"
+                    style={{ backgroundColor: getColor(d.name, i) }}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 break-words text-foreground">{d.name}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>
