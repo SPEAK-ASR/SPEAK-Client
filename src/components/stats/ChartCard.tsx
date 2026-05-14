@@ -41,7 +41,10 @@ export function ChartCard({
         )}
       </CardHeader>
       <CardContent>
-        <div style={{ height }} className="w-full">
+        <div
+          style={{ height }}
+          className="flex min-h-0 w-full flex-col justify-center"
+        >
           {children}
         </div>
       </CardContent>

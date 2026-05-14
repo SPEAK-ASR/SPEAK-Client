@@ -45,6 +45,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import {
   statisticsApi,
+  type AsrReferencePreferenceStats,
   type StatisticsResponse,
 } from "../lib/statisticsApi";
 import { formatNumber } from "../lib/utils";
@@ -294,9 +295,8 @@ function Charts({
       <ChartCard
         title="Transcription metadata"
         description="Speaker gender and Yes / No / Unknown for noise, code-mixing, and overlap."
-        height={520}
       >
-        <div className="grid h-full min-h-0 grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 xl:grid-cols-4 xl:items-start">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 xl:grid-cols-4 xl:items-start items-center justify-center">
           <MetadataMiniPie
             title="Speaker gender"
             data={genderPie}
@@ -324,14 +324,10 @@ function Charts({
       {asr && (
         <ChartCard
           title="ASR reference preference"
-          description="Which machine reference admins prefer when transcribing."
+          description="Share of decisive choices between Google and SPEAK references (excludes neutral)."
           height={140}
         >
-          <div className="grid grid-cols-3 gap-3 h-full">
-            <PrefStat label="Google" value={asr.google_chosen} accent="info" />
-            <PrefStat label="SPEAK" value={asr.speak_chosen} accent="success" />
-            <PrefStat label="Neutral" value={asr.neutral} accent="muted" />
-          </div>
+          <AsrPreferenceBar asr={asr} />
         </ChartCard>
       )}
 
@@ -593,29 +589,55 @@ function MetadataMiniPie({
   );
 }
 
-function PrefStat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent: "info" | "success" | "muted";
-}) {
-  const accentClass =
-    accent === "info"
-      ? "text-info"
-      : accent === "success"
-        ? "text-success"
-        : "text-muted-foreground";
+function AsrPreferenceBar({ asr }: { asr: AsrReferencePreferenceStats }) {
+  const google = asr.google_chosen;
+  const speak = asr.speak_chosen;
+  const decisive = asr.decisive_total;
+
+  const googlePct =
+    asr.google_share_percent != null
+      ? Math.round(asr.google_share_percent)
+      : decisive > 0
+        ? Math.round((google / decisive) * 100)
+        : null;
+  const speakPct = googlePct != null ? 100 - googlePct : null;
+
+  if (decisive <= 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-2 text-center">
+        <p className="text-sm text-muted-foreground">
+          No decisive Google vs SPEAK choices in this period.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center rounded-md border border-border bg-background/40 py-3">
-      <p className={`text-[11px] uppercase tracking-[0.18em] ${accentClass}`}>
-        {label}
-      </p>
-      <p className="text-2xl font-semibold tabular-nums">
-        {formatNumber(value)}
-      </p>
+    <div className="flex h-full flex-col justify-center gap-4 py-0.5">
+      <div
+        className="flex h-3.5 w-full overflow-hidden rounded-full border border-border bg-muted/60"
+        role="img"
+        aria-label={`Reference preference: Google ${googlePct}%, SPEAK ${speakPct}%`}
+      >
+        {googlePct != null && googlePct > 0 && (
+          <div className="h-full shrink-0 bg-info" style={{ width: `${googlePct}%` }} />
+        )}
+        {speakPct != null && speakPct > 0 && (
+          <div className="h-full shrink-0 bg-success" style={{ width: `${speakPct}%` }} />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-6 sm:flex sm:justify-center sm:gap-16">
+        <div className="text-center sm:text-right">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-info">Google</p>
+          <p className="text-xl font-semibold tabular-nums">{formatNumber(google)}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{googlePct}% of decisive</p>
+        </div>
+        <div className="text-center sm:text-left">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-success">SPEAK</p>
+          <p className="text-xl font-semibold tabular-nums">{formatNumber(speak)}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{speakPct}% of decisive</p>
+        </div>
+      </div>
     </div>
   );
 }
