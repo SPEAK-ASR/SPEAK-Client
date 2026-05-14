@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import { speakServerClient } from "../lib/speakServerApi";
 import type { ChannelCard } from "../types/channel";
 
 interface UseChannelCardsResult {
@@ -10,10 +10,6 @@ interface UseChannelCardsResult {
   deleteChannel: (channelId: string) => Promise<void>;
 }
 
-const SPEAK_SERVER_API_BASE =
-  import.meta.env.VITE_SPEAK_SERVER_API_URL ??
-  "http://localhost:5000/api/v1";
-
 export function useChannelCards(): UseChannelCardsResult {
   const [channels, setChannels] = useState<ChannelCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +19,7 @@ export function useChannelCards(): UseChannelCardsResult {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get<ChannelCard[]>(
-        `${SPEAK_SERVER_API_BASE}/channels`,
-      );
+      const res = await speakServerClient.get<ChannelCard[]>("/channels");
       setChannels(res.data.filter((c) => !c.isDeleted));
     } catch (e) {
       console.error(e);
@@ -40,8 +34,8 @@ export function useChannelCards(): UseChannelCardsResult {
   }, [load]);
 
   const deleteChannel = useCallback(async (channelId: string) => {
-    await axios.delete(
-      `${SPEAK_SERVER_API_BASE}/channels/${encodeURIComponent(channelId)}`,
+    await speakServerClient.delete(
+      `/channels/${encodeURIComponent(channelId)}`,
     );
     setChannels((prev) => prev.filter((c) => c.channelId !== channelId));
   }, []);

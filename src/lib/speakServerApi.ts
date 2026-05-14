@@ -1,12 +1,11 @@
 import axios from "axios";
 
 const SPEAK_SERVER_API_URL =
-  import.meta.env.VITE_SPEAK_SERVER_API_URL ||
-  "http://localhost:5000/api/v1";
+  import.meta.env.VITE_SPEAK_SERVER_API_URL || "http://localhost:5000/api/v1";
 
 export const SPEAK_SERVER_API_BASE = SPEAK_SERVER_API_URL;
 
-const client = axios.create({
+export const speakServerClient = axios.create({
   baseURL: SPEAK_SERVER_API_URL,
   headers: { "Content-Type": "application/json" },
 });
@@ -58,20 +57,20 @@ export interface VideoValidationResponse {
 
 export const speakServerApi = {
   async fetchLeaderboard(range: LeaderboardRange = "all") {
-    const { data } = await client.get<AdminLeaderboardResponse>(
+    const { data } = await speakServerClient.get<AdminLeaderboardResponse>(
       "/admin/leaderboard",
       { params: { range } },
     );
     return data;
   },
   async getNextYouTubeVideoForValidation() {
-    const { data } = await client.get<YouTubeVideoValidationItem>(
+    const { data } = await speakServerClient.get<YouTubeVideoValidationItem>(
       "/validation/youtube-video/next",
     );
     return data;
   },
   async submitVideoValidationStatus(videoId: string, isValidated: boolean) {
-    const { data } = await client.post<VideoValidationResponse>(
+    const { data } = await speakServerClient.post<VideoValidationResponse>(
       `/validation/youtube-video/${videoId}/validation-status`,
       { is_validated: isValidated },
     );
