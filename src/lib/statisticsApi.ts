@@ -1,13 +1,4 @@
-import axios from "axios";
-
-const SPEAK_SERVER_API_URL =
-  import.meta.env.VITE_SPEAK_SERVER_API_URL ||
-  "http://localhost:5000/api/v1";
-
-const statisticsClient = axios.create({
-  baseURL: SPEAK_SERVER_API_URL,
-  headers: { "Content-Type": "application/json" },
-});
+import { speakServerClient as statisticsClient } from "./speakServerApi";
 
 export interface CategoryDurationData {
   category: string;
