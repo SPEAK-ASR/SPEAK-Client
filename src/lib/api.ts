@@ -2,9 +2,9 @@ import axios from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_AUDIO_SCRAPING_API_URL ||
-  "http://localhost:8000/api/v1";
+  "http://localhost:5001/api/v1";
 const AUDIO_BASE_URL =
-  import.meta.env.VITE_AUDIO_SCRAPING_BASE_URL || "http://localhost:8000";
+  import.meta.env.VITE_AUDIO_SCRAPING_BASE_URL || "http://localhost:5001";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

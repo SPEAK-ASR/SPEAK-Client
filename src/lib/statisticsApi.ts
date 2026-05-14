@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { speakServerClient as statisticsClient } from "./speakServerApi";
 
 export interface CategoryDurationData {
   category: string;
@@ -108,13 +108,14 @@ export interface StatisticsResponse {
 
 export const statisticsApi = {
   getAllStatistics: async (days = 30): Promise<StatisticsResponse> => {
-    const r = await api.get(`/statistics?days=${days}`);
+    const r = await statisticsClient.get(`/statistics?days=${days}`);
     return r.data;
   },
   getDailyTranscriptions: async (days = 30) => {
-    const r = await api.get<{ success: boolean; data: DailyTranscriptionData[] }>(
-      `/statistics/daily?days=${days}`,
-    );
+    const r = await statisticsClient.get<{
+      success: boolean;
+      data: DailyTranscriptionData[];
+    }>(`/statistics/daily?days=${days}`);
     return r.data;
   },
 };

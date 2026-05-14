@@ -27,10 +27,10 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import {
-  transcriptionServiceApi,
+  speakServerApi,
   type AdminLeaderboardEntry,
   type LeaderboardRange,
-} from "../lib/transcriptionServiceApi";
+} from "../lib/speakServerApi";
 import { cn, formatNumber } from "../lib/utils";
 import { fadeUp, stagger } from "../lib/motion";
 
@@ -56,7 +56,7 @@ export function LeaderboardPage() {
     let mounted = true;
     setLoading(true);
     setError(null);
-    transcriptionServiceApi
+    speakServerApi
       .fetchLeaderboard(range)
       .then((data) => {
         if (!mounted) return;

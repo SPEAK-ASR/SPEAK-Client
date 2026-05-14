@@ -226,32 +226,25 @@ function Charts({
 }) {
   const meta = data.transcription_metadata;
 
-  const stackedMeta = [
-    {
-      name: "Suitable",
-      yes: meta?.audio_suitability.suitable ?? 0,
-      no: meta?.audio_suitability.unsuitable ?? 0,
-      unknown: meta?.audio_suitability.unknown ?? 0,
-    },
-    {
-      name: "Has noise",
-      yes: meta?.noise.with_noise ?? 0,
-      no: meta?.noise.without_noise ?? 0,
-      unknown: meta?.noise.unknown ?? 0,
-    },
-    {
-      name: "Code-mixed",
-      yes: meta?.code_mixing.code_mixed ?? 0,
-      no: meta?.code_mixing.not_mixed ?? 0,
-      unknown: meta?.code_mixing.unknown ?? 0,
-    },
-    {
-      name: "Overlap",
-      yes: meta?.speaker_overlapping.with_overlap ?? 0,
-      no: meta?.speaker_overlapping.without_overlap ?? 0,
-      unknown: meta?.speaker_overlapping.unknown ?? 0,
-    },
-  ];
+  const genderPie = aggregateGenderPie(meta?.speaker_gender ?? []);
+
+  const noisePie = ynukSlices(
+    meta?.noise.with_noise ?? 0,
+    meta?.noise.without_noise ?? 0,
+    meta?.noise.unknown ?? 0,
+  );
+
+  const codeMixPie = ynukSlices(
+    meta?.code_mixing.code_mixed ?? 0,
+    meta?.code_mixing.not_mixed ?? 0,
+    meta?.code_mixing.unknown ?? 0,
+  );
+
+  const overlapPie = ynukSlices(
+    meta?.speaker_overlapping.with_overlap ?? 0,
+    meta?.speaker_overlapping.without_overlap ?? 0,
+    meta?.speaker_overlapping.unknown ?? 0,
+  );
 
   const transcriptionStatus = [
     {
@@ -300,20 +293,32 @@ function Charts({
     <div className="space-y-4">
       <ChartCard
         title="Transcription metadata"
-        description="Yes / No / Unknown distribution across submission flags."
+        description="Speaker gender and Yes / No / Unknown for noise, code-mixing, and overlap."
+        height={520}
       >
-        <ResponsiveContainer>
-          <BarChart data={stackedMeta} margin={{ top: 5, right: 8, left: -12, bottom: 0 }}>
-            <CartesianGrid stroke={CHART_COLORS.muted} strokeOpacity={0.15} vertical={false} />
-            <XAxis dataKey="name" stroke={CHART_COLORS.muted} fontSize={11} />
-            <YAxis stroke={CHART_COLORS.muted} fontSize={11} />
-            <Tooltip {...TOOLTIP_STYLES} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="yes" name="Yes" stackId="a" fill={CHART_COLORS.success} radius={[0, 0, 0, 0]} />
-            <Bar dataKey="no" name="No" stackId="a" fill={CHART_COLORS.destructive} />
-            <Bar dataKey="unknown" name="Unknown" stackId="a" fill={CHART_COLORS.muted} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="grid h-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetadataMiniPie
+            title="Speaker gender"
+            data={genderPie}
+            emptyHint="No gender data"
+            getColor={(_, i) => CHART_COLORS.cat[i % CHART_COLORS.cat.length]}
+          />
+          <MetadataMiniPie
+            title="Has noise"
+            data={noisePie}
+            getColor={(name) => YNU_COLORS[name] ?? CHART_COLORS.muted}
+          />
+          <MetadataMiniPie
+            title="Code-mixed"
+            data={codeMixPie}
+            getColor={(name) => YNU_COLORS[name] ?? CHART_COLORS.muted}
+          />
+          <MetadataMiniPie
+            title="Overlap"
+            data={overlapPie}
+            getColor={(name) => YNU_COLORS[name] ?? CHART_COLORS.muted}
+          />
+        </div>
       </ChartCard>
 
       {asr && (
@@ -469,6 +474,87 @@ function Charts({
   );
 }
 
+const YNU_COLORS: Record<string, string> = {
+  Yes: CHART_COLORS.success,
+  No: CHART_COLORS.destructive,
+  Unknown: CHART_COLORS.muted,
+};
+
+function formatGenderLabel(gender: string): string {
+  const s = gender.trim();
+  if (!s) return "Unknown";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/_/g, " ");
+}
+
+function ynukSlices(yes: number, no: number, unknown: number) {
+  return [
+    { name: "Yes" as const, value: yes },
+    { name: "No" as const, value: no },
+    { name: "Unknown" as const, value: unknown },
+  ].filter((d) => d.value > 0);
+}
+
+function aggregateGenderPie(
+  rows: { gender: string; count: number }[],
+): { name: string; value: number }[] {
+  const byLabel = new Map<string, number>();
+  for (const row of rows) {
+    if (row.count <= 0) continue;
+    const label = formatGenderLabel(row.gender);
+    byLabel.set(label, (byLabel.get(label) ?? 0) + row.count);
+  }
+  return Array.from(byLabel.entries()).map(([name, value]) => ({ name, value }));
+}
+
+function MetadataMiniPie({
+  title,
+  data,
+  getColor,
+  emptyHint,
+}: {
+  title: string;
+  data: { name: string; value: number }[];
+  getColor: (name: string, index: number) => string;
+  emptyHint?: string;
+}) {
+  const hasData = data.length > 0 && data.some((d) => d.value > 0);
+
+  return (
+    <div className="flex min-h-[220px] flex-col">
+      <p className="mb-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        {title}
+      </p>
+      <div className="min-h-0 flex-1 w-full">
+        {!hasData ? (
+          <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+            {emptyHint ?? "No data"}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Tooltip {...TOOLTIP_STYLES} />
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={38}
+                outerRadius={72}
+                paddingAngle={1}
+                stroke="hsl(0 0% 7%)"
+              >
+                {data.map((d, i) => (
+                  <Cell key={`${d.name}-${i}`} fill={getColor(d.name, i)} />
+                ))}
+              </Pie>
+              <Legend wrapperStyle={{ fontSize: 10 }} verticalAlign="bottom" height={28} />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PrefStat({
   label,
   value,
@@ -499,7 +585,7 @@ function PrefStat({
 function ChartsSkeleton() {
   return (
     <div className="space-y-4">
-      <Skeleton className="h-72 w-full" />
+      <Skeleton className="h-[520px] w-full" />
       <div className="grid gap-4 lg:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-72 w-full" />

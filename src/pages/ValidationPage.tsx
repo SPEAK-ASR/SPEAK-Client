@@ -29,10 +29,10 @@ import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { toast } from "../components/ui/toast";
 import {
-  transcriptionServiceApi,
+  speakServerApi,
   type VideoAudioClip,
   type YouTubeVideoValidationItem,
-} from "../lib/transcriptionServiceApi";
+} from "../lib/speakServerApi";
 import { cn, formatDuration } from "../lib/utils";
 
 export function ValidationPage() {
@@ -55,7 +55,7 @@ export function ValidationPage() {
     abortPlayAll.current = true;
     try {
       const data =
-        await transcriptionServiceApi.getNextYouTubeVideoForValidation();
+        await speakServerApi.getNextYouTubeVideoForValidation();
       setVideo(data);
     } catch (err) {
       const status =
@@ -140,7 +140,7 @@ export function ValidationPage() {
       handleStopAll();
       setSubmitting(true);
       try {
-        await transcriptionServiceApi.submitVideoValidationStatus(
+        await speakServerApi.submitVideoValidationStatus(
           video.id,
           isValidated,
         );

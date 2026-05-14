@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const TRANSCRIPTION_API_BASE_URL =
-  import.meta.env.VITE_TRANSCRIPTION_API_URL || "http://localhost:5000/api/v1";
+  import.meta.env.VITE_TRANSCRIPTION_API_URL ||
+  "http://localhost:5002/api/v1";
 
 const transcriptionApi = axios.create({
   baseURL: TRANSCRIPTION_API_BASE_URL,
@@ -50,81 +51,13 @@ export interface TranscriptionRecord {
   is_best_google?: boolean | null;
 }
 
-export interface VideoAudioClip {
-  audio_id: string;
-  audio_filename: string;
-  google_transcription: string | null;
-  gcs_signed_url: string;
-}
-
-export interface YouTubeVideoValidationItem {
-  id: string;
-  video_id: string;
-  title: string;
-  description: string;
-  duration: string;
-  uploader: string;
-  upload_date: string;
-  thumbnail: string;
-  url: string;
-  domain: string;
-  is_validated: boolean | null;
-  created_at: string;
-  audio_clip_count: number;
-  audio_clips: VideoAudioClip[];
-}
-
-export interface VideoValidationResponse {
-  id: string;
-  video_id: string;
-  is_validated: boolean;
-  message: string;
-}
-
-export type LeaderboardRange = "all" | "week" | "month";
-
-export interface AdminLeaderboardEntry {
-  admin: string;
-  count: number;
-}
-
-export interface AdminLeaderboardResponse {
-  success: boolean;
-  range: LeaderboardRange;
-  total: number;
-  leaders: AdminLeaderboardEntry[];
-}
-
 export const transcriptionServiceApi = {
   async fetchRandomAudio() {
     const { data } = await transcriptionApi.get<AudioTask>("/audio/random");
     return data;
   },
   async submitTranscription(payload: TranscriptionSubmissionPayload) {
-    const { data } = await transcriptionApi.post(
-      "/transcription",
-      payload,
-    );
+    const { data } = await transcriptionApi.post("/transcription", payload);
     return data as TranscriptionRecord;
-  },
-  async fetchLeaderboard(range: LeaderboardRange = "all") {
-    const { data } = await axios.get<AdminLeaderboardResponse>(
-      `${TRANSCRIPTION_API_BASE_URL}/admin/leaderboard`,
-      { params: { range } },
-    );
-    return data;
-  },
-  async getNextYouTubeVideoForValidation() {
-    const { data } = await transcriptionApi.get<YouTubeVideoValidationItem>(
-      "/validation/youtube-video/next",
-    );
-    return data;
-  },
-  async submitVideoValidationStatus(videoId: string, isValidated: boolean) {
-    const { data } = await transcriptionApi.post<VideoValidationResponse>(
-      `/validation/youtube-video/${videoId}/validation-status`,
-      { is_validated: isValidated },
-    );
-    return data;
   },
 };
